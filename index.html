@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
     <title>GestaoTime - Futevôlei</title>
+    <!-- Tailwind via CDN para simplicidade e rapidez -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -36,36 +37,29 @@
         background-color: #09090b;
         color: #f4f4f5;
         -webkit-tap-highlight-color: transparent;
-        overscroll-behavior-y: none; /* Evita o "bounce" excessivo no mobile */
+        overscroll-behavior-y: none;
       }
       
-      /* GLOBAL: Hide scrollbar for Chrome, Safari and Opera */
-      *::-webkit-scrollbar {
-        display: none;
-      }
-
-      /* GLOBAL: Hide scrollbar for IE, Edge and Firefox */
-      * {
-        -ms-overflow-style: none;  /* IE and Edge */
-        scrollbar-width: none;  /* Firefox */
-      }
+      *::-webkit-scrollbar { display: none; }
+      * { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
   <script type="importmap">
 {
   "imports": {
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.10.1",
+    "vite": "https://esm.sh/vite@^7.3.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.88.0",
     "react/": "https://esm.sh/react@^19.2.3/",
     "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react-dom": "https://esm.sh/react-dom@^19.2.3",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.87.3",
-    "lucide-react": "https://esm.sh/lucide-react@^0.561.0?external=react,react-dom",
-    "react-router-dom": "https://esm.sh/react-router-dom@^7.10.1?external=react,react-dom",
-    "qrcode.react": "https://esm.sh/qrcode.react@3.1.0?external=react,react-dom"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
   }
 }
 </script>
 </head>
   <body>
     <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
