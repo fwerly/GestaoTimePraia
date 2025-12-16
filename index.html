@@ -17,7 +17,7 @@
               surfaceHighlight: '#27272a', // Zinc 800
               primary: {
                 400: '#a3e635', // Lime 400
-                500: '#84cc16', // Lime 500
+                500: '#84cc16', // Lime 500 (Nike Volt Color approx)
                 600: '#65a30d', // Lime 600
                 900: '#365314',
               },
@@ -33,13 +33,22 @@
       }
     </script>
     <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+
       body {
-        background-color: #09090b;
+        background-color: #050505; /* Darker than standard zinc-950 */
         color: #f4f4f5;
         -webkit-tap-highlight-color: transparent;
         overscroll-behavior-y: none;
+        font-family: 'Inter', sans-serif;
       }
       
+      /* Sporty Selection Color */
+      ::selection {
+        background: #84cc16;
+        color: black;
+      }
+
       *::-webkit-scrollbar { display: none; }
       * { -ms-overflow-style: none; scrollbar-width: none; }
     </style>

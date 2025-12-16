@@ -9,7 +9,7 @@ export const MOCK_USER_STUDENT: Profile = {
 
 export const MOCK_USER_ADMIN: Profile = {
   id: 'admin-1',
-  full_name: 'Coach Beto',
+  full_name: 'Treinador Beto',
   role: 'admin',
   avatar_url: 'https://picsum.photos/seed/admin/150/150',
 };

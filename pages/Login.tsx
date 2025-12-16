@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
-import { MOCK_USER_ADMIN } from '../services/mockData';
+import { MOCK_USER_ADMIN, MOCK_USER_STUDENT } from '../services/mockData';
 import { Profile } from '../types';
-import { Mail, Lock, Chrome, AlertTriangle } from '../components/ui/Icons';
-import { signInWithGoogle } from '../services/authService';
+import { Mail, Lock, Trophy } from '../components/ui/Icons';
 import { useToast } from '../context/ToastContext';
 
 interface LoginProps {
@@ -22,11 +21,19 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setLoading(true);
 
     // --- ADMIN BYPASS HACK ---
-    // Atendendo a solicitação: usuário "admin" e senha "admin" loga como administrador.
     if (email === 'admin' && password === 'admin') {
       setTimeout(() => {
         onLogin(MOCK_USER_ADMIN);
-        addToast("Bem-vindo, Coach!", "success");
+        addToast("Bem-vindo, Treinador!", "success");
+      }, 500);
+      return;
+    }
+
+    // --- STUDENT BYPASS HACK ---
+    if (email === 'user' && password === 'user') {
+      setTimeout(() => {
+        onLogin(MOCK_USER_STUDENT);
+        addToast(`Bora pro treino, ${MOCK_USER_STUDENT.full_name.split(' ')[0]}! 🚀`, "success");
       }, 500);
       return;
     }
@@ -41,107 +48,137 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       if (error) throw error;
 
       if (data.session) {
-        // Fetch profile
-        const { data: profile } = await supabase
+        // Tenta buscar o perfil existente
+        let { data: profile } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', data.session.user.id)
-          .single();
+          .maybeSingle();
         
+        // SELF-HEALING: Se autenticou mas não tem perfil (erro comum de RLS no cadastro), cria agora.
+        if (!profile && data.session.user) {
+          console.log("Perfil não encontrado. Tentando criar automaticamente...");
+          const metadata = data.session.user.user_metadata || {};
+          
+          const newProfile = {
+             id: data.session.user.id,
+             full_name: metadata.full_name || 'Novo Usuário',
+             role: 'student', // Default seguro
+             whatsapp: metadata.whatsapp || null,
+             avatar_url: metadata.avatar_url || `https://ui-avatars.com/api/?name=User&background=random`
+          };
+
+          const { data: createdProfile, error: createError } = await supabase
+             .from('profiles')
+             .insert([newProfile])
+             .select()
+             .single();
+             
+          if (!createError && createdProfile) {
+             profile = createdProfile;
+          } else {
+             console.error("Falha na autocriação do perfil:", createError);
+          }
+        }
+
         if (profile) {
           onLogin(profile as Profile);
-          addToast(`Bem-vindo, ${profile.full_name}!`, "success");
+          addToast(`Bora pro treino, ${profile.full_name.split(' ')[0]}! 🚀`, "success");
         } else {
-           // Fallback if profile missing
-           addToast("Perfil não encontrado.", "error");
+           addToast("Conta existe, mas o perfil não foi carregado.", "error");
         }
       }
     } catch (error: any) {
-      addToast(error.message || "Erro no login.", "error");
+      if (error.message === 'Invalid login credentials') {
+        addToast("Email/Senha incorretos ou email não confirmado.", "error");
+      } else {
+        addToast(error.message || "Erro no login.", "error");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
-    try {
-      await signInWithGoogle();
-      // O redirecionamento acontece e o App.tsx captura a sessão no useEffect
-    } catch (error: any) {
-      addToast("Erro ao conectar com Google. Verifique a configuração.", "error");
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8 relative overflow-hidden">
+    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6 relative overflow-hidden">
       
-      {/* Background Decorative Blobs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[300px] h-[300px] bg-primary-600/20 rounded-full blur-[100px] pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[200px] h-[200px] bg-accent-500/20 rounded-full blur-[100px] pointer-events-none"></div>
+      {/* Sports Dynamic Background - Efeito "Refletor de Estádio" */}
+      <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-primary-900/40 via-transparent to-transparent opacity-60"></div>
+      <div className="absolute -top-20 -right-20 w-[400px] h-[400px] bg-primary-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+      <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black via-zinc-950/80 to-transparent pointer-events-none"></div>
+
+      {/* Grid Pattern Overlay */}
+      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
 
       <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
-        <div className="w-24 h-24 bg-gradient-to-tr from-primary-400 to-primary-600 rounded-3xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(132,204,22,0.4)] rotate-3">
-          <span className="text-5xl drop-shadow-md">🏐</span>
+        
+        {/* Logo Area */}
+        <div className="mb-10 relative">
+          <div className="absolute inset-0 bg-primary-500 blur-[40px] opacity-20 rounded-full"></div>
+          <div className="w-24 h-24 bg-zinc-900 border border-zinc-800 rounded-3xl flex items-center justify-center relative rotate-3 shadow-2xl shadow-black">
+             <Trophy size={40} className="text-primary-500" />
+          </div>
+          <div className="w-24 h-24 bg-primary-500 rounded-3xl absolute top-0 left-0 -z-10 -rotate-6 opacity-40"></div>
         </div>
         
-        <h1 className="text-4xl font-black text-white mb-2 tracking-tight">Gestao<span className="text-primary-400">Time</span></h1>
-        <p className="text-zinc-400 mb-8 text-center font-medium">Faça login para continuar.</p>
+        <h1 className="text-5xl font-black text-white mb-2 tracking-tighter italic uppercase">
+          Gestao<span className="text-primary-500">Time</span>
+        </h1>
+        <p className="text-zinc-400 mb-10 text-center font-medium tracking-wide uppercase text-xs">
+          Performance . Agenda . Foco
+        </p>
 
-        <form onSubmit={handleLogin} className="w-full space-y-4">
-          <div className="relative">
-             <Mail className="absolute left-4 top-3.5 text-zinc-500" size={20} />
-             <input 
-               type="text" // text para permitir digitar só "admin"
-               placeholder="Email" 
-               value={email}
-               onChange={e => setEmail(e.target.value)}
-               className="w-full bg-surface border border-zinc-800 text-white pl-12 pr-4 py-3 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
-             />
-          </div>
+        {/* Card de Login */}
+        <div className="w-full bg-zinc-900/50 backdrop-blur-md border border-white/5 p-6 rounded-3xl shadow-xl">
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-1">
+               <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Email</label>
+               <div className="relative group">
+                  <Mail className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-primary-500 transition-colors" size={20} />
+                  <input 
+                    type="text" 
+                    placeholder="seu@email.com" 
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className="w-full bg-black/40 border border-zinc-800 text-white pl-12 pr-4 py-3.5 rounded-xl focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50 transition-all font-medium placeholder:text-zinc-700"
+                  />
+               </div>
+            </div>
 
-          <div className="relative">
-             <Lock className="absolute left-4 top-3.5 text-zinc-500" size={20} />
-             <input 
-               type="password" 
-               placeholder="Senha" 
-               value={password}
-               onChange={e => setPassword(e.target.value)}
-               className="w-full bg-surface border border-zinc-800 text-white pl-12 pr-4 py-3 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
-             />
-          </div>
+            <div className="space-y-1">
+               <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Senha</label>
+               <div className="relative group">
+                  <Lock className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-primary-500 transition-colors" size={20} />
+                  <input 
+                    type="password" 
+                    placeholder="••••••••" 
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="w-full bg-black/40 border border-zinc-800 text-white pl-12 pr-4 py-3.5 rounded-xl focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50 transition-all font-medium placeholder:text-zinc-700"
+                  />
+               </div>
+            </div>
 
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full bg-primary-500 hover:bg-primary-400 text-black font-bold py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(132,204,22,0.2)]"
-          >
-            {loading ? 'Entrando...' : 'ENTRAR'}
-          </button>
-        </form>
-
-        <div className="w-full flex items-center gap-4 my-6">
-          <div className="h-px bg-zinc-800 flex-1"></div>
-          <span className="text-zinc-600 text-xs font-bold uppercase">Ou</span>
-          <div className="h-px bg-zinc-800 flex-1"></div>
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="w-full bg-primary-500 hover:bg-primary-400 text-black font-black text-sm uppercase tracking-wider py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(132,204,22,0.3)] hover:shadow-[0_0_30px_rgba(132,204,22,0.5)] active:scale-[0.98] mt-4"
+            >
+              {loading ? 'Acessando...' : 'Entrar na Arena'}
+            </button>
+          </form>
         </div>
-
-        <button 
-          onClick={handleGoogleLogin}
-          className="w-full bg-white text-black font-bold py-3 rounded-xl flex items-center justify-center gap-3 hover:bg-zinc-200 transition-colors"
-        >
-          <Chrome size={20} />
-          Entrar com Google
-        </button>
 
         <div className="mt-8 text-center">
           <p className="text-zinc-500 text-sm">
-            Não tem uma conta? <Link to="/register" className="text-primary-400 font-bold hover:underline">Cadastre-se</Link>
+            Novo no time? <Link to="/register" className="text-white font-bold hover:text-primary-500 transition-colors border-b-2 border-primary-500/30 hover:border-primary-500 pb-0.5">Criar Conta</Link>
           </p>
         </div>
 
-        {/* Admin Tip */}
-        <div className="absolute bottom-[-60px] text-zinc-800 text-[10px] uppercase font-bold tracking-widest opacity-30 select-none">
-           Admin Access: admin / admin
+        {/* Versão */}
+        <div className="absolute bottom-6 flex flex-col items-center gap-1 opacity-40">
+           <span className="text-zinc-600 text-[10px] uppercase font-black tracking-[0.2em]">System v1.13</span>
+           <div className="w-8 h-0.5 bg-zinc-800 rounded-full"></div>
         </div>
       </div>
     </div>

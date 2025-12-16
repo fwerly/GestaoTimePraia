@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Clock, CheckCircle2 } from './ui/Icons';
+import { MapPin, Clock, CheckCircle2, Edit } from './ui/Icons';
 import { Schedule, Profile } from '../types';
 import { checkIn, checkOut } from '../services/dataService';
 import { useToast } from '../context/ToastContext';
@@ -10,9 +10,10 @@ interface ScheduleCardProps {
   onUpdate: () => void;
   isAdmin?: boolean;
   onDelete?: (id: string) => void;
+  onEdit?: (schedule: Schedule) => void;
 }
 
-export const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, currentUser, onUpdate, isAdmin, onDelete }) => {
+export const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, currentUser, onUpdate, isAdmin, onDelete, onEdit }) => {
   const [loading, setLoading] = useState(false);
   const [showAttendees, setShowAttendees] = useState(false);
   const { addToast } = useToast();
@@ -50,35 +51,45 @@ export const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, currentUse
   };
 
   return (
-    <div className="bg-surface rounded-3xl p-5 mb-5 relative group border border-white/5 shadow-lg">
+    <div className="bg-zinc-900/40 backdrop-blur-md rounded-3xl p-5 mb-5 relative group border border-white/5 shadow-xl hover:bg-zinc-900/50 transition-colors">
       
       {/* Top Section: Date & Info */}
       <div className="flex gap-4 mb-4">
         {/* Date Box */}
-        <div className="flex flex-col items-center justify-center bg-zinc-800/50 rounded-2xl w-16 h-16 border border-white/5">
-          <span className="text-[10px] font-bold text-zinc-500">{dayName.replace('.','')}</span>
-          <span className="text-2xl font-black text-white">{dayNumber}</span>
+        <div className="flex flex-col items-center justify-center bg-black/40 rounded-2xl w-16 h-16 border border-white/5 shadow-inner">
+          <span className="text-[10px] font-black italic text-zinc-500">{dayName.replace('.','')}</span>
+          <span className="text-2xl font-black text-white italic">{dayNumber}</span>
         </div>
 
         {/* Info */}
         <div className="flex-1 py-1">
           <div className="flex justify-between items-start">
             <div>
-              <div className="flex items-center text-white font-bold text-xl leading-none mb-2">
+              <div className="flex items-center text-white font-black italic text-xl leading-none mb-2 tracking-wide">
                 {timeString}
               </div>
-              <div className="flex items-center text-xs font-medium text-zinc-400 bg-zinc-800/50 px-2 py-1 rounded-md inline-flex">
+              <div className="flex items-center text-xs font-bold text-zinc-400 bg-black/30 px-2 py-1 rounded-md inline-flex border border-white/5">
                 <MapPin size={12} className="mr-1 text-primary-400" />
                 {schedule.location}
               </div>
             </div>
             {isAdmin && (
-              <button 
-                onClick={() => onDelete && onDelete(schedule.id)}
-                className="text-zinc-600 hover:text-red-400 transition-colors p-1"
-              >
-                <span className="text-[10px] font-bold uppercase tracking-widest">Excluir</span>
-              </button>
+              <div className="flex items-center gap-1">
+                 {onEdit && (
+                    <button 
+                      onClick={() => onEdit(schedule)}
+                      className="bg-black/40 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors p-2 rounded-full border border-white/5"
+                    >
+                      <Edit size={14} />
+                    </button>
+                 )}
+                 <button 
+                  onClick={() => onDelete && onDelete(schedule.id)}
+                  className="bg-black/40 text-zinc-400 hover:text-red-400 hover:bg-zinc-800 transition-colors p-2 rounded-full border border-white/5"
+                 >
+                   <span className="text-[10px] font-bold uppercase tracking-widest px-1">X</span>
+                 </button>
+              </div>
             )}
           </div>
         </div>
@@ -93,13 +104,13 @@ export const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, currentUse
                   key={att.id}
                   src={att.profile?.avatar_url}
                   alt={att.profile?.full_name}
-                  className="inline-block h-8 w-8 rounded-full ring-2 ring-surface bg-zinc-800 object-cover"
+                  className="inline-block h-8 w-8 rounded-full ring-2 ring-black bg-zinc-800 object-cover grayscale opacity-80 hover:grayscale-0 hover:opacity-100 transition-all"
                 />
               ))}
               {attendees.length > 0 && (
                  <button 
                   onClick={() => setShowAttendees(!showAttendees)}
-                  className="h-8 w-8 rounded-full bg-zinc-800 ring-2 ring-surface flex items-center justify-center text-[10px] font-bold text-zinc-400 hover:bg-zinc-700 transition-colors"
+                  className="h-8 w-8 rounded-full bg-black/60 ring-2 ring-black flex items-center justify-center text-[10px] font-bold text-zinc-400 hover:bg-zinc-800 transition-colors"
                  >
                    {showAttendees ? 'x' : `+${Math.max(0, attendees.length - 5)}`}
                  </button>
@@ -110,7 +121,7 @@ export const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, currentUse
            </div>
            
            <div className="text-right">
-             <span className={`text-sm font-black ${isFull ? 'text-red-500' : 'text-primary-400'}`}>
+             <span className={`text-sm font-black italic ${isFull ? 'text-red-500' : 'text-primary-400'}`}>
                {isFull ? 'LOTADO' : availableSpots}
              </span>
              <span className="text-[10px] text-zinc-500 font-bold block uppercase tracking-wide">
@@ -120,9 +131,9 @@ export const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, currentUse
         </div>
 
         {/* Custom Progress Bar */}
-        <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+        <div className="h-1.5 w-full bg-black/50 rounded-full overflow-hidden border border-white/5">
             <div 
-              className={`h-full rounded-full transition-all duration-500 shadow-[0_0_10px_currentColor] ${isFull ? 'bg-red-500 text-red-500' : 'bg-primary-500 text-primary-500'}`}
+              className={`h-full rounded-full transition-all duration-500 shadow-[0_0_15px_currentColor] ${isFull ? 'bg-red-500 text-red-500' : 'bg-primary-500 text-primary-500'}`}
               style={{ width: `${(spotsTaken / schedule.limit_count) * 100}%` }}
             ></div>
         </div>
@@ -130,13 +141,13 @@ export const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, currentUse
 
       {/* Expanded List */}
       {showAttendees && (
-          <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-3 mb-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-black/40 border border-white/5 rounded-xl p-3 mb-4 animate-in fade-in zoom-in-95 duration-200">
             <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Lista de Presença</h4>
             <div className="grid grid-cols-2 gap-2">
               {attendees.map(att => (
                 <div key={att.id} className="flex items-center gap-2 text-xs text-zinc-300">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary-500"></div>
-                  {att.profile?.full_name.split(' ')[0]}
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary-500 shadow-[0_0_5px_rgba(132,204,22,0.8)]"></div>
+                  <span className="font-medium">{att.profile?.full_name.split(' ')[0]}</span>
                 </div>
               ))}
             </div>
@@ -148,12 +159,12 @@ export const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, currentUse
         <button
           onClick={handleAction}
           disabled={loading || (!isCheckedIn && isFull)}
-          className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wide flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
+          className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider italic flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
             isCheckedIn 
-              ? 'bg-zinc-800 text-red-400 border border-red-900/30 hover:bg-red-900/20'
+              ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]'
               : isFull 
-                ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-white/5'
-                : 'bg-primary-500 text-black hover:bg-primary-400 shadow-[0_0_20px_rgba(132,204,22,0.25)]'
+                ? 'bg-zinc-800/50 text-zinc-600 cursor-not-allowed border border-white/5'
+                : 'bg-primary-500 text-black hover:bg-primary-400 shadow-[0_0_20px_rgba(132,204,22,0.3)] border border-primary-400'
           }`}
         >
           {loading ? (

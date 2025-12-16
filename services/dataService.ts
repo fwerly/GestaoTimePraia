@@ -52,6 +52,17 @@ export const createSchedule = async (schedule: Omit<Schedule, 'id' | 'checkins'>
   return { ...data, checkins: [] };
 };
 
+export const updateSchedule = async (id: string, updates: Partial<Schedule>): Promise<void> => {
+  const { error } = await supabase
+    .from('schedules')
+    .update(updates)
+    .eq('id', id);
+
+  if (error) {
+    throw error;
+  }
+};
+
 export const deleteSchedule = async (id: string): Promise<void> => {
   const { error } = await supabase
     .from('schedules')

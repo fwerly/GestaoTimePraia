@@ -23,7 +23,8 @@ import
   Lock,
   Phone,
   Home,
-  Chrome
+  Chrome,
+  Edit
 } from 'lucide-react';
 
 export { 
@@ -50,5 +51,6 @@ export {
   Lock,
   Phone,
   Home,
-  Chrome
+  Chrome,
+  Edit
 };

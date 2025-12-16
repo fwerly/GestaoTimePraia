@@ -44,8 +44,8 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    if (user?.id.startsWith('admin-')) {
-       // Mock admin logout
+    if (user?.id.startsWith('admin-') || user?.id.startsWith('user-')) {
+       // Mock logout for admin and user bypass
        setUser(null);
     } else {
        await signOut();
