@@ -4,6 +4,8 @@ export interface Profile {
   role: 'admin' | 'student';
   avatar_url?: string;
   whatsapp?: string;
+  birth_date?: string; // YYYY-MM-DD
+  address?: string;
   pix_key?: string;
   pix_key_type?: 'cpf' | 'cnpj' | 'email' | 'phone' | 'random';
 }

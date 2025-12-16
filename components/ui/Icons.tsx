@@ -18,7 +18,12 @@ import
   DollarSign,
   Database,
   AlertTriangle,
-  Terminal
+  Terminal,
+  Mail,
+  Lock,
+  Phone,
+  Home,
+  Chrome
 } from 'lucide-react';
 
 export { 
@@ -40,5 +45,10 @@ export {
   DollarSign,
   Database,
   AlertTriangle,
-  Terminal
+  Terminal,
+  Mail,
+  Lock,
+  Phone,
+  Home,
+  Chrome
 };

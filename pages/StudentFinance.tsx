@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Profile, Payment } from '../types';
 import { getPayments, generateMercadoPagoPix } from '../services/dataService';
 import { supabase } from '../utils/supabaseClient';
-import { Copy, Wallet, XCircle, CheckCircle2, AlertTriangle, Terminal } from '../components/ui/Icons';
+import { Copy, Wallet, XCircle, CheckCircle2, AlertTriangle } from '../components/ui/Icons';
 import { useToast } from '../context/ToastContext';
 
 interface Props {
@@ -15,16 +15,7 @@ export const StudentFinance: React.FC<Props> = ({ user }) => {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [generatingPix, setGeneratingPix] = useState(false);
   
-  // LOG SYSTEM STATE
-  const [logs, setLogs] = useState<string[]>([]);
-  const [showLogs, setShowLogs] = useState(false);
-
   const { addToast } = useToast();
-
-  const addLog = (msg: string) => {
-    const time = new Date().toLocaleTimeString();
-    setLogs(prev => [`[${time}] ${msg}`, ...prev]);
-  };
 
   useEffect(() => {
     loadData();
@@ -41,7 +32,6 @@ export const StudentFinance: React.FC<Props> = ({ user }) => {
           setSelectedPayment(prev => prev ? { ...prev, status: updated.status } : null);
           if (updated.status === 'paid') {
              addToast("Pagamento Confirmado Automaticamente! 🚀", "success");
-             addLog("Webhook confirmou pagamento.");
           }
         }
       })
@@ -61,21 +51,14 @@ export const StudentFinance: React.FC<Props> = ({ user }) => {
 
   const handlePayClick = async (payment: Payment) => {
     setSelectedPayment(payment);
-    setLogs([]); // Limpa logs anteriores
-    setShowLogs(false);
     
     // Se ainda não tem QR Code, gerar no Mercado Pago
     if (!payment.qr_code && payment.status === 'pending') {
       setGeneratingPix(true);
-      addLog(`Iniciando geração de Pix para ID: ${payment.id}`);
       
       try {
-        addLog("Chamando API /api/create-pix...");
-        
         // Assume student email mock for MVP, in real app use user.email
         const updatedPayment = await generateMercadoPagoPix(payment.id, "email@aluno.com");
-        
-        addLog("Sucesso! QR Code recebido.");
         
         setSelectedPayment(prev => prev ? { 
           ...prev, 
@@ -91,10 +74,9 @@ export const StudentFinance: React.FC<Props> = ({ user }) => {
         } : p));
 
       } catch (error: any) {
-        const errorMsg = error.message || "Erro desconhecido";
-        addLog(`ERRO FATAL: ${errorMsg}`);
+        const errorMsg = error.message || "Erro ao gerar Pix.";
+        console.error(error);
         addToast(errorMsg, "error");
-        setShowLogs(true); // Mostra logs automaticamente em caso de erro
       } finally {
         setGeneratingPix(false);
       }
@@ -205,7 +187,6 @@ export const StudentFinance: React.FC<Props> = ({ user }) => {
                          <div className="relative z-10 w-full h-full flex flex-col items-center justify-center text-center p-4">
                            <AlertTriangle className="text-red-500 mb-2" size={32} />
                            <p className="text-zinc-900 font-bold text-sm">Não foi possível gerar o QR Code.</p>
-                           <p className="text-zinc-500 text-xs mt-1">Veja os logs abaixo para detalhes.</p>
                            <button 
                              onClick={() => handlePayClick(selectedPayment)}
                              className="mt-3 bg-zinc-900 text-white text-xs px-3 py-1.5 rounded-lg"
@@ -240,28 +221,6 @@ export const StudentFinance: React.FC<Props> = ({ user }) => {
                     )}
                   </>
                 )}
-
-                {/* DEBUG LOG SECTION */}
-                <div className="mt-4 border-t border-white/5 pt-4">
-                   <button 
-                     onClick={() => setShowLogs(!showLogs)} 
-                     className="flex items-center gap-2 text-[10px] text-zinc-500 uppercase font-bold tracking-widest hover:text-white mb-2"
-                   >
-                     <Terminal size={12} />
-                     {showLogs ? 'Ocultar Logs' : 'Ver Logs de Erro'}
-                   </button>
-                   
-                   {showLogs && (
-                     <div className="bg-black/50 p-3 rounded-xl border border-white/5 h-32 overflow-y-auto font-mono text-[10px]">
-                       {logs.length === 0 && <span className="text-zinc-600">Nenhum log registrado.</span>}
-                       {logs.map((log, i) => (
-                         <div key={i} className={`mb-1 border-b border-white/5 pb-1 ${log.includes('ERRO') ? 'text-red-400' : 'text-zinc-400'}`}>
-                           {log}
-                         </div>
-                       ))}
-                     </div>
-                   )}
-                </div>
               </>
             )}
           </div>
