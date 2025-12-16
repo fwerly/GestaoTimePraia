@@ -1,0 +1,5 @@
+{
+  "name": "GestaoTime - Futevôlei",
+  "description": "Mobile-first PWA for managing footvolley team schedules and check-ins.",
+  "requestFramePermissions": []
+}
