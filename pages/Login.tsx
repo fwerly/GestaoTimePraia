@@ -55,7 +55,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       
       {/* Indicador de Versão */}
       <div className="absolute bottom-6 text-zinc-700 font-mono text-[10px] uppercase tracking-widest opacity-50">
-        v1.2
+        v1.4
       </div>
     </div>
   );

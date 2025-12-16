@@ -1,28 +1,27 @@
-// Webhook endpoint called by Mercado Pago
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://lcyjcuqugpkerkmxduqv.supabase.co';
-// IMPORTANTE: Service Role Key para backend
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://lcyjcuqugpkerkmxduqv.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxjeWpjdXF1Z3BrZXJrbXhkdXF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3NTg2MDcsImV4cCI6MjA4MTMzNDYwN30.oaUtL3Q6_m5rE1jgY2eY44D0PlbP_mw38tA9ss3Q3w0';
 
-const supabase = createClient(supabaseUrl, supabaseKey!);
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// TOKEN DE PRODUÇÃO (Hardcoded conforme solicitado)
 const MERCADO_PAGO_ACCESS_TOKEN = 'APP_USR-5165598701794197-121612-8cecb803683ec49d9984cb40625c67fd-91598504';
 
-export default async function handler(request: Request) {
-  if (request.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405 });
+export default async function handler(req: any, res: any) {
+  if (req.method !== 'POST') {
+    return res.status(405).send('Method Not Allowed');
   }
 
   try {
-    const url = new URL(request.url);
-    const topic = url.searchParams.get('topic') || url.searchParams.get('type');
-    const id = url.searchParams.get('id') || url.searchParams.get('data.id');
+    // URLSearchParams não funciona direto no req.url em funções node-like do Vercel da mesma forma que Web API
+    // Usamos req.query fornecido pelo Vercel
+    const { topic, id, type, 'data.id': dataId } = req.query;
+    
+    const notificationTopic = topic || type;
+    const notificationId = id || dataId;
 
-    if (topic === 'payment') {
-      // Usando Token Hardcoded diretamente
-      const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${id}`, {
+    if (notificationTopic === 'payment' && notificationId) {
+      const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${notificationId}`, {
         headers: { 'Authorization': `Bearer ${MERCADO_PAGO_ACCESS_TOKEN}` }
       });
       
@@ -30,19 +29,17 @@ export default async function handler(request: Request) {
         const paymentData = await mpResponse.json();
         
         if (paymentData.status === 'approved') {
-          const { error } = await supabase
+          await supabase
             .from('payments')
             .update({ status: 'paid' })
-            .eq('external_id', id);
-            
-          if (error) console.error('Supabase Update Error', error);
+            .eq('external_id', notificationId.toString());
         }
       }
     }
 
-    return new Response('OK', { status: 200 });
+    return res.status(200).send('OK');
   } catch (error) {
     console.error(error);
-    return new Response('Internal Error', { status: 500 });
+    return res.status(500).send('Internal Error');
   }
 }

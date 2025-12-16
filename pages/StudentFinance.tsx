@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Profile, Payment } from '../types';
 import { getPayments, generateMercadoPagoPix } from '../services/dataService';
 import { supabase } from '../utils/supabaseClient';
-import { Copy, Wallet, XCircle, CheckCircle2 } from '../components/ui/Icons';
+import { Copy, Wallet, XCircle, CheckCircle2, AlertTriangle, Terminal } from '../components/ui/Icons';
 import { useToast } from '../context/ToastContext';
 
 interface Props {
@@ -14,7 +14,17 @@ export const StudentFinance: React.FC<Props> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [generatingPix, setGeneratingPix] = useState(false);
+  
+  // LOG SYSTEM STATE
+  const [logs, setLogs] = useState<string[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
+
   const { addToast } = useToast();
+
+  const addLog = (msg: string) => {
+    const time = new Date().toLocaleTimeString();
+    setLogs(prev => [`[${time}] ${msg}`, ...prev]);
+  };
 
   useEffect(() => {
     loadData();
@@ -31,6 +41,7 @@ export const StudentFinance: React.FC<Props> = ({ user }) => {
           setSelectedPayment(prev => prev ? { ...prev, status: updated.status } : null);
           if (updated.status === 'paid') {
              addToast("Pagamento Confirmado Automaticamente! 🚀", "success");
+             addLog("Webhook confirmou pagamento.");
           }
         }
       })
@@ -50,13 +61,22 @@ export const StudentFinance: React.FC<Props> = ({ user }) => {
 
   const handlePayClick = async (payment: Payment) => {
     setSelectedPayment(payment);
+    setLogs([]); // Limpa logs anteriores
+    setShowLogs(false);
     
     // Se ainda não tem QR Code, gerar no Mercado Pago
     if (!payment.qr_code && payment.status === 'pending') {
       setGeneratingPix(true);
+      addLog(`Iniciando geração de Pix para ID: ${payment.id}`);
+      
       try {
+        addLog("Chamando API /api/create-pix...");
+        
         // Assume student email mock for MVP, in real app use user.email
         const updatedPayment = await generateMercadoPagoPix(payment.id, "email@aluno.com");
+        
+        addLog("Sucesso! QR Code recebido.");
+        
         setSelectedPayment(prev => prev ? { 
           ...prev, 
           qr_code: updatedPayment.qr_code, 
@@ -71,11 +91,10 @@ export const StudentFinance: React.FC<Props> = ({ user }) => {
         } : p));
 
       } catch (error: any) {
-        // Mostra o erro exato retornado pelo service
-        addToast(error.message || "Erro ao conectar com Mercado Pago.", "error");
-        // Não fecha o modal, mas deixa o usuário ver que falhou. 
-        // Se quiser fechar o modal, descomente a linha abaixo:
-        // setSelectedPayment(null);
+        const errorMsg = error.message || "Erro desconhecido";
+        addLog(`ERRO FATAL: ${errorMsg}`);
+        addToast(errorMsg, "error");
+        setShowLogs(true); // Mostra logs automaticamente em caso de erro
       } finally {
         setGeneratingPix(false);
       }
@@ -139,7 +158,7 @@ export const StudentFinance: React.FC<Props> = ({ user }) => {
       {/* Payment Modal */}
       {selectedPayment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-surface w-full max-w-sm rounded-3xl p-6 border border-white/10 relative max-h-[90vh] overflow-y-auto">
+          <div className="bg-surface w-full max-w-sm rounded-3xl p-6 border border-white/10 relative max-h-[90vh] overflow-y-auto flex flex-col">
             <button 
               onClick={() => setSelectedPayment(null)}
               className="absolute top-4 right-4 text-zinc-500 hover:text-white"
@@ -170,13 +189,12 @@ export const StudentFinance: React.FC<Props> = ({ user }) => {
                 {generatingPix ? (
                    <div className="flex flex-col items-center py-10">
                      <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                     <p className="text-zinc-400 text-sm">Gerando QR Code no Mercado Pago...</p>
+                     <p className="text-zinc-400 text-sm animate-pulse">Gerando QR Code no Mercado Pago...</p>
+                     <p className="text-zinc-600 text-xs mt-2">Isso pode levar alguns segundos...</p>
                    </div>
                 ) : (
                   <>
-                    <div className="flex justify-center mb-6 bg-white p-4 rounded-xl relative overflow-hidden">
-                       {/* Blur effect for security/aesthetics if image fails */}
-                       <div className="absolute inset-0 bg-white"></div>
+                    <div className="flex justify-center mb-6 bg-white p-4 rounded-xl relative overflow-hidden min-h-[160px]">
                        {selectedPayment.qr_code_base64 ? (
                          <img 
                            src={`data:image/png;base64,${selectedPayment.qr_code_base64}`} 
@@ -184,32 +202,66 @@ export const StudentFinance: React.FC<Props> = ({ user }) => {
                            alt="Pix QR Code"
                          />
                        ) : (
-                         <div className="relative z-10 w-40 h-40 flex items-center justify-center text-black font-bold text-xs text-center">
-                           {selectedPayment.qr_code ? 'Use o Copia e Cola abaixo.' : 'Erro: Token não configurado ou Backend offline.'}
+                         <div className="relative z-10 w-full h-full flex flex-col items-center justify-center text-center p-4">
+                           <AlertTriangle className="text-red-500 mb-2" size={32} />
+                           <p className="text-zinc-900 font-bold text-sm">Não foi possível gerar o QR Code.</p>
+                           <p className="text-zinc-500 text-xs mt-1">Veja os logs abaixo para detalhes.</p>
+                           <button 
+                             onClick={() => handlePayClick(selectedPayment)}
+                             className="mt-3 bg-zinc-900 text-white text-xs px-3 py-1.5 rounded-lg"
+                           >
+                             Tentar Novamente
+                           </button>
                          </div>
                        )}
                     </div>
 
-                    <div className="mb-6">
-                      <label className="text-[10px] uppercase font-bold text-zinc-500 mb-2 block">Pix Copia e Cola</label>
-                      <div 
-                        onClick={() => copyToClipboard(selectedPayment.qr_code)}
-                        className="bg-zinc-900 border border-zinc-700 rounded-xl p-3 flex items-center justify-between cursor-pointer active:scale-95 transition-transform"
-                      >
-                        <span className="text-xs text-zinc-300 truncate mr-2 font-mono">
-                          {selectedPayment.qr_code || 'Erro na geração'}
-                        </span>
-                        <Copy size={16} className="text-primary-400 shrink-0" />
+                    {selectedPayment.qr_code && (
+                      <div className="mb-6">
+                        <label className="text-[10px] uppercase font-bold text-zinc-500 mb-2 block">Pix Copia e Cola</label>
+                        <div 
+                          onClick={() => copyToClipboard(selectedPayment.qr_code)}
+                          className="bg-zinc-900 border border-zinc-700 rounded-xl p-3 flex items-center justify-between cursor-pointer active:scale-95 transition-transform"
+                        >
+                          <span className="text-xs text-zinc-300 truncate mr-2 font-mono">
+                            {selectedPayment.qr_code}
+                          </span>
+                          <Copy size={16} className="text-primary-400 shrink-0" />
+                        </div>
                       </div>
-                    </div>
+                    )}
                     
-                    <div className="text-center p-3 bg-blue-900/20 border border-blue-900/50 rounded-xl mb-4">
-                      <p className="text-blue-200 text-xs animate-pulse">
-                        Aguardando confirmação automática do banco...
-                      </p>
-                    </div>
+                    {selectedPayment.qr_code && (
+                      <div className="text-center p-3 bg-blue-900/20 border border-blue-900/50 rounded-xl mb-4">
+                        <p className="text-blue-200 text-xs animate-pulse">
+                          Aguardando confirmação automática do banco...
+                        </p>
+                      </div>
+                    )}
                   </>
                 )}
+
+                {/* DEBUG LOG SECTION */}
+                <div className="mt-4 border-t border-white/5 pt-4">
+                   <button 
+                     onClick={() => setShowLogs(!showLogs)} 
+                     className="flex items-center gap-2 text-[10px] text-zinc-500 uppercase font-bold tracking-widest hover:text-white mb-2"
+                   >
+                     <Terminal size={12} />
+                     {showLogs ? 'Ocultar Logs' : 'Ver Logs de Erro'}
+                   </button>
+                   
+                   {showLogs && (
+                     <div className="bg-black/50 p-3 rounded-xl border border-white/5 h-32 overflow-y-auto font-mono text-[10px]">
+                       {logs.length === 0 && <span className="text-zinc-600">Nenhum log registrado.</span>}
+                       {logs.map((log, i) => (
+                         <div key={i} className={`mb-1 border-b border-white/5 pb-1 ${log.includes('ERRO') ? 'text-red-400' : 'text-zinc-400'}`}>
+                           {log}
+                         </div>
+                       ))}
+                     </div>
+                   )}
+                </div>
               </>
             )}
           </div>

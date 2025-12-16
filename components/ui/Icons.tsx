@@ -16,7 +16,9 @@ import
   QrCode,
   Copy,
   DollarSign,
-  Database
+  Database,
+  AlertTriangle,
+  Terminal
 } from 'lucide-react';
 
 export { 
@@ -36,5 +38,7 @@ export {
   QrCode,
   Copy,
   DollarSign,
-  Database
+  Database,
+  AlertTriangle,
+  Terminal
 };

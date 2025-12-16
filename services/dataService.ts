@@ -163,23 +163,25 @@ export const generateMercadoPagoPix = async (paymentId: string, email: string) =
       body: JSON.stringify({ paymentId, email })
     });
 
-    // Verifica se a resposta é JSON. Se estiver rodando no Vite local sem 'vercel dev', 
-    // ele pode retornar o index.html (text/html), o que causaria erro no JSON.parse.
     const contentType = response.headers.get("content-type");
+    
+    // Se não for JSON, provavelmente é erro do Vercel (500 html, 404 html, etc)
     if (!contentType || !contentType.includes("application/json")) {
-      throw new Error("API Backend não encontrada. Se estiver local, use 'vercel dev' ou faça deploy.");
+      const text = await response.text();
+      console.error("Non-JSON API Response:", text);
+      throw new Error(`Erro API (Status ${response.status}): Resposta inválida do servidor. Pode ser um erro de configuração ou timeout.`);
     }
 
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Falha ao gerar Pix no Mercado Pago');
+      throw new Error(data.error || `Erro MP: ${JSON.stringify(data)}`);
     }
 
     return data;
   } catch (error: any) {
-    console.error("Erro MP:", error);
-    throw new Error(error.message || "Erro de conexão com API");
+    console.error("Erro no Service:", error);
+    throw new Error(error.message || "Falha de conexão.");
   }
 };
 
