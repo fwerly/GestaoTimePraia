@@ -45,8 +45,9 @@ export const AdminFinance: React.FC<Props> = ({ user }) => {
       await saveMercadoPagoToken(mpToken);
       addToast("Token do Mercado Pago salvo!", "success");
       setShowConfig(false);
-    } catch (e) {
-      addToast("Erro ao salvar token. Você é admin?", "error");
+    } catch (e: any) {
+      console.error(e);
+      addToast(e.message || "Erro ao salvar token. Tente novamente.", "error");
     }
   };
 

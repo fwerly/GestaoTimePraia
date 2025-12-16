@@ -8,6 +8,9 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SU
 
 const supabase = createClient(supabaseUrl, supabaseKey!);
 
+// TOKEN DE PRODUÇÃO (Hardcoded conforme solicitado)
+const MERCADO_PAGO_ACCESS_TOKEN = 'APP_USR-5165598701794197-121612-8cecb803683ec49d9984cb40625c67fd-91598504';
+
 export default async function handler(request: Request) {
   if (request.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 });
@@ -25,15 +28,8 @@ export default async function handler(request: Request) {
 
     if (pError || !payment) throw new Error('Payment not found');
 
-    // 2. Fetch Mercado Pago Token (Stored by Admin)
-    const { data: config, error: cError } = await supabase
-      .from('app_config')
-      .select('value')
-      .eq('key', 'mp_access_token')
-      .single();
-
-    if (cError || !config?.value) throw new Error('Mercado Pago Token not configured by Admin');
-    const accessToken = config.value;
+    // 2. Usando Token Hardcoded (Não consulta mais o banco)
+    const accessToken = MERCADO_PAGO_ACCESS_TOKEN;
 
     // 3. Call Mercado Pago API
     const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {

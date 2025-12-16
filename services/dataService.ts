@@ -156,21 +156,35 @@ export const updatePaymentStatus = async (id: string, status: Payment['status'])
 // --- GESTÃO DE CONFIGURAÇÃO (ADMIN) ---
 
 export const saveMercadoPagoToken = async (token: string): Promise<void> => {
-  // Chamamos a API Segura em vez do Supabase direto para evitar erros de RLS (permissão)
-  const response = await fetch('/api/save-config', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token })
-  });
+  try {
+    // 1. Tenta via API Backend (Ideal para produção/Vercel)
+    const response = await fetch('/api/save-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
 
-  const contentType = response.headers.get("content-type");
-  if (!contentType || !contentType.includes("application/json")) {
-    throw new Error("API Backend não encontrada. Se estiver local, use 'vercel dev'.");
-  }
+    const contentType = response.headers.get("content-type");
+    
+    // Se não for JSON (ex: HTML do index.html), lança erro para cair no catch e tentar direto no banco
+    if (!contentType || !contentType.includes("application/json")) {
+      throw new Error("API Route unavailable");
+    }
 
-  if (!response.ok) {
-    const data = await response.json();
-    throw new Error(data.error || 'Erro ao salvar configuração');
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Erro ao salvar configuração via API');
+    }
+
+  } catch (error) {
+    console.warn("API '/api/save-config' falhou, tentando salvar diretamente no Supabase...", error);
+    
+    // 2. Fallback: Salva diretamente no Supabase (Funciona em Localhost ou se RLS permitir)
+    const { error: sbError } = await supabase
+      .from('app_config')
+      .upsert({ key: 'mp_access_token', value: token });
+
+    if (sbError) throw sbError;
   }
 };
 

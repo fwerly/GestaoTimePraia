@@ -7,6 +7,9 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SU
 
 const supabase = createClient(supabaseUrl, supabaseKey!);
 
+// TOKEN DE PRODUÇÃO (Hardcoded conforme solicitado)
+const MERCADO_PAGO_ACCESS_TOKEN = 'APP_USR-5165598701794197-121612-8cecb803683ec49d9984cb40625c67fd-91598504';
+
 export default async function handler(request: Request) {
   if (request.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 });
@@ -18,16 +21,9 @@ export default async function handler(request: Request) {
     const id = url.searchParams.get('id') || url.searchParams.get('data.id');
 
     if (topic === 'payment') {
-      const { data: config } = await supabase
-        .from('app_config')
-        .select('value')
-        .eq('key', 'mp_access_token')
-        .single();
-      
-      if (!config?.value) return new Response('Config missing', { status: 500 });
-
+      // Usando Token Hardcoded diretamente
       const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${id}`, {
-        headers: { 'Authorization': `Bearer ${config.value}` }
+        headers: { 'Authorization': `Bearer ${MERCADO_PAGO_ACCESS_TOKEN}` }
       });
       
       if (mpResponse.ok) {
