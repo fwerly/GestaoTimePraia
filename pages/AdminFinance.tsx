@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Profile, Payment } from '../types';
-import { getPayments, updatePaymentStatus, saveMercadoPagoToken, getMercadoPagoToken, createPayment, getStudents, generateMockData } from '../services/dataService';
-import { Plus, CheckCircle2, XCircle, Wallet, User, DollarSign, Database } from '../components/ui/Icons';
+import { getPayments, createPayment, getStudents, generateMockData } from '../services/dataService';
+import { Plus, CheckCircle2, XCircle, User, Database } from '../components/ui/Icons';
 import { useToast } from '../context/ToastContext';
 
 interface Props {
@@ -12,8 +12,6 @@ export const AdminFinance: React.FC<Props> = ({ user }) => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [students, setStudents] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [mpToken, setMpToken] = useState('');
-  const [showConfig, setShowConfig] = useState(false);
   const [showNewCharge, setShowNewCharge] = useState(false);
   const { addToast } = useToast();
 
@@ -28,27 +26,14 @@ export const AdminFinance: React.FC<Props> = ({ user }) => {
 
   const loadData = async () => {
     setLoading(true);
-    const [paymentsData, tokenData, studentsData] = await Promise.all([
+    const [paymentsData, studentsData] = await Promise.all([
       getPayments('admin', user.id),
-      getMercadoPagoToken(),
       getStudents()
     ]);
     setPayments(paymentsData);
     setStudents(studentsData);
     if(studentsData.length > 0) setNewStudentId(studentsData[0].id);
-    if(tokenData) setMpToken(tokenData);
     setLoading(false);
-  };
-
-  const handleSaveToken = async () => {
-    try {
-      await saveMercadoPagoToken(mpToken);
-      addToast("Token do Mercado Pago salvo!", "success");
-      setShowConfig(false);
-    } catch (e: any) {
-      console.error(e);
-      addToast(e.message || "Erro ao salvar token. Tente novamente.", "error");
-    }
   };
 
   const handleGenerateData = async () => {
@@ -102,13 +87,6 @@ export const AdminFinance: React.FC<Props> = ({ user }) => {
             <Database size={20} />
           </button>
           <button 
-            onClick={() => setShowConfig(!showConfig)}
-            className="bg-zinc-800 text-zinc-400 p-3 rounded-full hover:bg-zinc-700 relative"
-          >
-            <Wallet size={20} />
-            {mpToken && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-zinc-900"></span>}
-          </button>
-          <button 
             onClick={() => setShowNewCharge(true)}
             className="bg-accent-500 text-white p-3 rounded-full hover:bg-accent-400"
           >
@@ -116,30 +94,6 @@ export const AdminFinance: React.FC<Props> = ({ user }) => {
           </button>
         </div>
       </div>
-
-      {showConfig && (
-        <div className="bg-surface p-5 rounded-3xl border border-zinc-800 mb-6 animate-in slide-in-from-top-2">
-          <h3 className="font-bold text-white mb-2 flex items-center gap-2">
-            <DollarSign size={18} className="text-blue-400"/> 
-            Configurar Mercado Pago
-          </h3>
-          <p className="text-xs text-zinc-500 mb-4">
-            Insira seu <strong>Access Token (Produção)</strong>. O sistema irá gerar Pix e confirmar pagamentos automaticamente.
-          </p>
-          <div className="flex flex-col gap-3">
-            <input 
-              type="password" 
-              value={mpToken}
-              onChange={(e) => setMpToken(e.target.value)}
-              placeholder="APP_USR-0000..."
-              className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-accent-500 outline-none text-xs font-mono"
-            />
-            <button onClick={handleSaveToken} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors">
-              Salvar Token
-            </button>
-          </div>
-        </div>
-      )}
 
       {showNewCharge && (
         <div className="bg-surface p-6 rounded-3xl border border-white/10 mb-8 animate-in slide-in-from-top-4 relative">

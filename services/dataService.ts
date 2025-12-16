@@ -153,51 +153,6 @@ export const updatePaymentStatus = async (id: string, status: Payment['status'])
   if (error) throw error;
 };
 
-// --- GESTÃO DE CONFIGURAÇÃO (ADMIN) ---
-
-export const saveMercadoPagoToken = async (token: string): Promise<void> => {
-  try {
-    // 1. Tenta via API Backend (Ideal para produção/Vercel)
-    const response = await fetch('/api/save-config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token })
-    });
-
-    const contentType = response.headers.get("content-type");
-    
-    // Se não for JSON (ex: HTML do index.html), lança erro para cair no catch e tentar direto no banco
-    if (!contentType || !contentType.includes("application/json")) {
-      throw new Error("API Route unavailable");
-    }
-
-    if (!response.ok) {
-      const data = await response.json();
-      throw new Error(data.error || 'Erro ao salvar configuração via API');
-    }
-
-  } catch (error) {
-    console.warn("API '/api/save-config' falhou, tentando salvar diretamente no Supabase...", error);
-    
-    // 2. Fallback: Salva diretamente no Supabase (Funciona em Localhost ou se RLS permitir)
-    const { error: sbError } = await supabase
-      .from('app_config')
-      .upsert({ key: 'mp_access_token', value: token });
-
-    if (sbError) throw sbError;
-  }
-};
-
-export const getMercadoPagoToken = async (): Promise<string | null> => {
-  const { data } = await supabase
-    .from('app_config')
-    .select('value')
-    .eq('key', 'mp_access_token')
-    .single();
-  
-  return data?.value || null;
-};
-
 // --- INTEGRAÇÃO API ---
 
 export const generateMercadoPagoPix = async (paymentId: string, email: string) => {
