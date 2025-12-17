@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
@@ -20,7 +21,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     e.preventDefault();
     setLoading(true);
 
-    // --- ADMIN BYPASS HACK ---
+    // Bypasses para testes rápidos
     if (email === 'admin' && password === 'admin') {
       setTimeout(() => {
         onLogin(MOCK_USER_ADMIN);
@@ -29,15 +30,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       return;
     }
 
-    // --- STUDENT BYPASS HACK ---
     if (email === 'user' && password === 'user') {
       setTimeout(() => {
-        onLogin(MOCK_USER_STUDENT);
-        addToast(`Bora pro treino, ${MOCK_USER_STUDENT.full_name.split(' ')[0]}! 🚀`, "success");
+        const userWithRealName = { ...MOCK_USER_STUDENT, full_name: "Atleta de Teste" };
+        onLogin(userWithRealName);
+        addToast(`Bora pro treino! 🚀`, "success");
       }, 500);
       return;
     }
-    // -------------------------
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -48,39 +48,35 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       if (error) throw error;
 
       if (data.session) {
-        // Tenta buscar o perfil existente
+        // Busca perfil no banco
         let { data: profile } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', data.session.user.id)
           .maybeSingle();
         
-        // SELF-HEALING: Se autenticou mas não tem perfil (erro comum de RLS no cadastro), cria agora.
-        if (!profile && data.session.user) {
-          console.log("Perfil não encontrado. Tentando criar automaticamente...");
-          const metadata = data.session.user.user_metadata || {};
-          // Tenta extrair um nome do email caso o metadata esteja vazio
-          const emailName = data.session.user.email?.split('@')[0];
-          const displayName = metadata.full_name || emailName || 'Atleta';
-          
-          const newProfile = {
+        const metadata = data.session.user.user_metadata || {};
+        const emailName = data.session.user.email?.split('@')[0];
+        const displayName = metadata.full_name || emailName || 'Atleta';
+
+        // LÓGICA DE AUTO-REPARO: Se o perfil não existe no banco (mas o Auth existe)
+        if (!profile || !profile.full_name || profile.full_name === 'Novo Usuário' || profile.full_name === 'Atleta') {
+          const profileUpdate = {
              id: data.session.user.id,
              full_name: displayName,
-             role: 'student', // Default seguro
-             whatsapp: metadata.whatsapp || null,
-             avatar_url: metadata.avatar_url || `https://ui-avatars.com/api/?name=${displayName}&background=random`
+             role: profile?.role || 'student',
+             whatsapp: profile?.whatsapp || metadata.whatsapp || null,
+             avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=84cc16&color=000&bold=true`
           };
 
-          const { data: createdProfile, error: createError } = await supabase
+          const { data: updatedProfile, error: updateError } = await supabase
              .from('profiles')
-             .insert([newProfile])
+             .upsert([profileUpdate])
              .select()
              .single();
              
-          if (!createError && createdProfile) {
-             profile = createdProfile;
-          } else {
-             console.error("Falha na autocriação do perfil:", createError);
+          if (!updateError && updatedProfile) {
+             profile = updatedProfile;
           }
         }
 
@@ -88,15 +84,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           onLogin(profile as Profile);
           addToast(`Bora pro treino, ${profile.full_name.split(' ')[0]}! 🚀`, "success");
         } else {
-           addToast("Conta existe, mas o perfil não foi carregado.", "error");
+           addToast("Sua conta está ativa, mas seu perfil não pôde ser criado.", "error");
         }
       }
     } catch (error: any) {
-      if (error.message === 'Invalid login credentials') {
-        addToast("Email/Senha incorretos ou email não confirmado.", "error");
-      } else {
-        addToast(error.message || "Erro no login.", "error");
-      }
+      const msg = error.message === 'Invalid login credentials' ? "E-mail ou senha incorretos." : error.message;
+      addToast(msg || "Erro ao acessar a arena.", "error");
     } finally {
       setLoading(false);
     }
@@ -104,18 +97,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      
-      {/* Sports Dynamic Background - Efeito "Refletor de Estádio" */}
       <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-primary-900/40 via-transparent to-transparent opacity-60"></div>
       <div className="absolute -top-20 -right-20 w-[400px] h-[400px] bg-primary-500/10 rounded-full blur-[100px] pointer-events-none"></div>
       <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black via-zinc-950/80 to-transparent pointer-events-none"></div>
-
-      {/* Grid Pattern Overlay */}
       <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
 
       <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
-        
-        {/* Logo Area */}
         <div className="mb-10 relative">
           <div className="absolute inset-0 bg-primary-500 blur-[40px] opacity-20 rounded-full"></div>
           <div className="w-24 h-24 bg-zinc-900 border border-zinc-800 rounded-3xl flex items-center justify-center relative rotate-3 shadow-2xl shadow-black">
@@ -131,11 +118,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           Performance . Agenda . Foco
         </p>
 
-        {/* Card de Login */}
         <div className="w-full bg-zinc-900/50 backdrop-blur-md border border-white/5 p-6 rounded-3xl shadow-xl">
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1">
-               <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Email</label>
+               <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">E-mail</label>
                <div className="relative group">
                   <Mail className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-primary-500 transition-colors" size={20} />
                   <input 
@@ -143,7 +129,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     placeholder="seu@email.com" 
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    className="w-full bg-black/40 border border-zinc-800 text-white pl-12 pr-4 py-3.5 rounded-xl focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50 transition-all font-medium placeholder:text-zinc-700"
+                    className="w-full bg-black/60 border border-zinc-800 text-white pl-12 pr-4 py-3.5 rounded-xl focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50 transition-all font-medium placeholder:text-zinc-700"
                   />
                </div>
             </div>
@@ -157,7 +143,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     placeholder="••••••••" 
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    className="w-full bg-black/40 border border-zinc-800 text-white pl-12 pr-4 py-3.5 rounded-xl focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50 transition-all font-medium placeholder:text-zinc-700"
+                    className="w-full bg-black/60 border border-zinc-800 text-white pl-12 pr-4 py-3.5 rounded-xl focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50 transition-all font-medium placeholder:text-zinc-700"
                   />
                </div>
             </div>
@@ -167,7 +153,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               disabled={loading}
               className="w-full bg-primary-500 hover:bg-primary-400 text-black font-black text-sm uppercase tracking-wider py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(132,204,22,0.3)] hover:shadow-[0_0_30px_rgba(132,204,22,0.5)] active:scale-[0.98] mt-4"
             >
-              {loading ? 'Acessando...' : 'Entrar na Arena'}
+              {loading ? 'Entrando...' : 'Entrar na Arena'}
             </button>
           </form>
         </div>
@@ -178,9 +164,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </p>
         </div>
 
-        {/* Versão */}
         <div className="absolute bottom-6 flex flex-col items-center gap-1 opacity-40">
-           <span className="text-zinc-600 text-[10px] uppercase font-black tracking-[0.2em]">System v1.17.6</span>
+           <span className="text-zinc-600 text-[10px] uppercase font-black tracking-[0.2em]">System v1.17.13</span>
            <div className="w-8 h-0.5 bg-zinc-800 rounded-full"></div>
         </div>
       </div>

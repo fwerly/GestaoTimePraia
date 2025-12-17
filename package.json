@@ -1,7 +1,8 @@
+
 {
   "name": "gestao-time",
   "private": true,
-  "version": "1.17.6",
+  "version": "1.17.13",
   "type": "module",
   "scripts": {
     "dev": "vite",

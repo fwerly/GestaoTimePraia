@@ -102,8 +102,8 @@ export const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, currentUse
               {attendees.slice(0, 5).map((att) => (
                 <img 
                   key={att.id}
-                  src={att.profile?.avatar_url}
-                  alt={att.profile?.full_name}
+                  src={att.profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(att.profile?.full_name || (att.user_id === currentUser.id ? currentUser.full_name : 'A'))}&background=random`}
+                  alt={att.profile?.full_name || 'Atleta'}
                   className="inline-block h-8 w-8 rounded-full ring-2 ring-black bg-zinc-800 object-cover grayscale opacity-80 hover:grayscale-0 hover:opacity-100 transition-all"
                 />
               ))}
@@ -144,12 +144,26 @@ export const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, currentUse
           <div className="bg-black/40 border border-white/5 rounded-xl p-3 mb-4 animate-in fade-in zoom-in-95 duration-200">
             <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Lista de Presença</h4>
             <div className="grid grid-cols-2 gap-2">
-              {attendees.map(att => (
-                <div key={att.id} className="flex items-center gap-2 text-xs text-zinc-300 overflow-hidden">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary-500 shadow-[0_0_5px_rgba(132,204,22,0.8)] shrink-0"></div>
-                  <span className="font-medium truncate" title={att.profile?.full_name}>{att.profile?.full_name}</span>
-                </div>
-              ))}
+              {attendees.map(att => {
+                // Lógica de Nome:
+                // 1. Se for o próprio usuário logado, usa o nome da sessão (resolve problema do mock e do 'Atleta')
+                // 2. Senão, tenta o nome do perfil do banco
+                // 3. Fallback final: 'Atleta'
+                let nameToShow = 'Atleta';
+                
+                if (att.user_id === currentUser.id) {
+                  nameToShow = currentUser.full_name;
+                } else if (att.profile?.full_name && att.profile.full_name !== 'Novo Usuário') {
+                  nameToShow = att.profile.full_name;
+                }
+                
+                return (
+                  <div key={att.id} className="flex items-center gap-2 text-xs text-zinc-300 overflow-hidden">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary-500 shadow-[0_0_5px_rgba(132,204,22,0.8)] shrink-0"></div>
+                    <span className="font-medium truncate" title={nameToShow}>{nameToShow}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
       )}
