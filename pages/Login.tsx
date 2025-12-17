@@ -2,14 +2,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
-import { MOCK_USER_ADMIN, MOCK_USER_STUDENT } from '../services/mockData';
-import { Profile } from '../types';
 import { Mail, Lock, Trophy } from '../components/ui/Icons';
 import { useToast } from '../context/ToastContext';
 import { useDebug } from '../context/DebugContext';
 
 interface LoginProps {
-  onLogin: (user: Profile) => void;
+  onLogin: (profile: any) => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
@@ -22,15 +20,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
-    log(`Login: ${email}`);
-
-    if (email === 'admin' && password === 'admin') {
-      onLogin(MOCK_USER_ADMIN);
-      addToast("Bem-vindo, Treinador!", "success");
-      setLoading(false);
-      return;
-    }
+    log(`Tentativa de Login: ${email}`);
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -39,23 +29,13 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       });
 
       if (error) throw error;
-
+      
       if (data.session) {
-        const { data: profile, error: pError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.session.user.id)
-          .maybeSingle();
-        
-        if (profile) {
-          onLogin(profile as Profile);
-          addToast(`Bora pro treino! 🚀`, "success");
-        } else {
-          addToast("Perfil não configurado.", "error");
-        }
+        addToast("Acesso liberado! 🚀", "success");
+        // O AuthContext cuidará de carregar o perfil e redirecionar
       }
     } catch (error: any) {
-      log(`Erro: ${error.message}`, 'error');
+      log(`Erro de Login: ${error.message}`, 'error');
       addToast(error.message || "Acesso negado.", "error");
     } finally {
       setLoading(false);
@@ -126,7 +106,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
 
         <div className="absolute bottom-6 opacity-40">
-           <span className="text-zinc-600 text-[10px] uppercase font-black tracking-[0.2em]">System v1.17.35</span>
+           <span className="text-zinc-600 text-[10px] uppercase font-black tracking-[0.2em]">Engine v1.18.0</span>
         </div>
       </div>
     </div>
