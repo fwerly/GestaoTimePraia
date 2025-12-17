@@ -18,11 +18,25 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check active session on load
+    let mounted = true;
+
+    // Função segura para checar sessão
     const checkSession = async () => {
-      const profile = await getCurrentProfile();
-      if (profile) setUser(profile);
-      setLoading(false);
+      try {
+        // Timeout de segurança: Se o Supabase demorar mais de 5s, libera o app
+        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 5000));
+        const sessionPromise = getCurrentProfile();
+
+        const result = await Promise.race([sessionPromise, timeoutPromise]);
+        
+        if (mounted && result && (result as Profile).id) {
+          setUser(result as Profile);
+        }
+      } catch (error) {
+        console.error("Falha ao verificar sessão inicial:", error);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     };
 
     checkSession();
@@ -30,14 +44,18 @@ const App: React.FC = () => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
+        // Ao fazer login explícito, não precisamos de timeout, o usuário espera
         const profile = await getCurrentProfile();
-        setUser(profile);
+        if (mounted) setUser(profile);
       } else if (event === 'SIGNED_OUT') {
-        setUser(null);
+        if (mounted) setUser(null);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleLogin = (loggedInUser: Profile) => {
@@ -56,8 +74,11 @@ const App: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest animate-pulse">Carregando...</p>
+        </div>
       </div>
     );
   }
