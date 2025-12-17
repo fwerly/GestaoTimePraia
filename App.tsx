@@ -16,6 +16,18 @@ import { Profile } from './types';
 import { ToastProvider } from './context/ToastContext';
 import { DebugProvider, useDebug } from './context/DebugContext';
 
+// Função para corrigir URLs malformadas vindas do e-mail (evita o /#/#)
+const normalizeUrlHash = () => {
+  const href = window.location.href;
+  if (href.includes('/#/#')) {
+    const fixedUrl = href.replace('/#/#', '/#');
+    console.log("Corrigindo Double Hash na URL:", fixedUrl);
+    window.location.href = fixedUrl;
+    return true;
+  }
+  return false;
+};
+
 const AppContent: React.FC = () => {
   const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,20 +37,22 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     let mounted = true;
 
-    log("App Iniciado v1.17.21");
+    // Se corrigiu a URL, interrompe esta execução pois a página vai recarregar
+    if (normalizeUrlHash()) return;
+
+    log("App Iniciado v1.17.22");
 
     const safetyTimeout = setTimeout(() => {
       if (mounted && loading) {
-        log("Safety timeout atingido. Liberando UI forçadamente.", "warn");
+        log("Safety timeout atingido. Liberando UI.", "warn");
         setLoading(false);
       }
     }, 4000);
 
     const checkUrlForRecovery = () => {
       const href = window.location.href;
-      log(`Checando URL: ${href.substring(0, 50)}...`);
       if (href.includes('type=recovery') || href.includes('access_token=')) {
-        log("Token de recuperação identificado na URL inicial!", "warn");
+        log("Token de recuperação detectado. Forçando tela de senha.", "warn");
         setForcePasswordUpdate(true);
       }
     };
@@ -46,26 +60,14 @@ const AppContent: React.FC = () => {
 
     const initAuth = async () => {
       try {
-        log("Buscando sessão atual...");
         const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          log(`Erro ao buscar sessão: ${error.message}`, "error");
-          throw error;
-        }
-
         if (session && mounted) {
-          log(`Sessão ativa encontrada para: ${session.user.email}`);
+          log(`Sessão ativa para: ${session.user.email}`);
           const profile = await getCurrentProfile();
-          if (profile) {
-            log(`Perfil carregado: ${profile.full_name}`);
-            setUser(profile);
-          }
-        } else {
-          log("Nenhuma sessão ativa encontrada.");
+          if (profile) setUser(profile);
         }
       } catch (error: any) {
-        log(`Erro fatal na inicialização: ${error.message}`, "error");
+        log(`Erro na inicialização: ${error.message}`, "error");
       } finally {
         if (mounted) {
           setLoading(false);
@@ -77,25 +79,24 @@ const AppContent: React.FC = () => {
     initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      log(`Auth Event Triggered: ${event}`);
+      log(`Evento Auth: ${event}`);
       
       if (event === 'PASSWORD_RECOVERY') {
-        log("Evento PASSWORD_RECOVERY recebido pelo Listener", "warn");
         setForcePasswordUpdate(true);
       }
 
-      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session) {
-        log(`Sessão atualizada: ${session.user.email}`);
+      if (event === 'USER_UPDATED' && session && forcePasswordUpdate) {
+        log("Detectado USER_UPDATED durante fluxo de recuperação. Finalizando forçadamente.", "warn");
+        // Se o evento disparou, a senha mudou. Podemos liberar o usuário.
+        setForcePasswordUpdate(false);
         const profile = await getCurrentProfile();
-        if (mounted && profile) {
-          setUser(profile);
-          if (event === 'USER_UPDATED' && !window.location.href.includes('access_token')) {
-            log("Update de usuário concluído, liberando fluxo de senha.");
-            setForcePasswordUpdate(false);
-          }
-        }
+        if (profile) setUser(profile);
+      }
+
+      if (event === 'SIGNED_IN' && session) {
+        const profile = await getCurrentProfile();
+        if (mounted && profile) setUser(profile);
       } else if (event === 'SIGNED_OUT') {
-        log("Usuário saiu do sistema.");
         if (mounted) {
           setUser(null);
           setForcePasswordUpdate(false);
@@ -108,10 +109,9 @@ const AppContent: React.FC = () => {
       subscription.unsubscribe();
       clearTimeout(safetyTimeout);
     };
-  }, []);
+  }, [forcePasswordUpdate]);
 
   const handleLogout = async () => {
-    log("Iniciando Logout...");
     await signOut();
     setUser(null);
     setForcePasswordUpdate(false);
@@ -119,22 +119,14 @@ const AppContent: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 text-center">
-        <div className="flex flex-col items-center gap-6">
-          <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-          <div className="space-y-2">
-            <p className="text-white font-black italic uppercase tracking-[0.2em] animate-pulse">Entrando na Arena</p>
-          </div>
-        </div>
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   if (forcePasswordUpdate) {
-    return <UpdatePassword onComplete={() => {
-      log("Fluxo de senha completo!");
-      setForcePasswordUpdate(false);
-    }} />;
+    return <UpdatePassword onComplete={() => setForcePasswordUpdate(false)} />;
   }
 
   return (
@@ -142,7 +134,6 @@ const AppContent: React.FC = () => {
       <Routes>
         <Route path="/" element={!user ? <Login onLogin={setUser} /> : <Navigate to={user.role === 'admin' ? '/admin' : '/student'} />} />
         <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
-        <Route path="/reset-password" element={<UpdatePassword onComplete={() => setForcePasswordUpdate(false)} />} />
         <Route path="/student" element={user ? <StudentDashboard user={user} /> : <Navigate to="/" />} />
         <Route path="/student/finance" element={user ? <StudentFinance user={user} /> : <Navigate to="/" />} />
         <Route path="/admin" element={user?.role === 'admin' ? <AdminDashboard user={user} /> : <Navigate to="/" />} />

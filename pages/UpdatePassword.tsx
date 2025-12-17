@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
-import { Lock, BadgeCheck, XCircle } from '../components/ui/Icons';
+import { Lock, BadgeCheck } from '../components/ui/Icons';
 import { useToast } from '../context/ToastContext';
 import { useDebug } from '../context/DebugContext';
 
@@ -18,14 +18,17 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    log("UpdatePassword Mount: Verificando se há sessão para atualização...");
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        log(`Sessão ativa para update detectada: ${data.session.user.email}`);
-      } else {
-        log("AVISO: Nenhuma sessão ativa detectada no componente UpdatePassword", "warn");
+    log("UpdatePassword Montado. Verificando sessão...");
+    
+    // Pequena pausa para garantir que o SDK leu o hash antes de limparmos
+    const timer = setTimeout(() => {
+      if (window.location.hash.includes('access_token')) {
+        log("Limpando hash da URL para estabilizar SDK...");
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
       }
-    });
+    }, 1000);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const handleUpdate = async (e: React.FormEvent) => {
@@ -36,44 +39,38 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
     }
 
     setLoading(true);
-    log("Iniciando chamada: supabase.auth.updateUser({ password: '***' })");
+    log("Chamando updateUser...");
 
-    // Timeout local para detectar se o Supabase não responde
-    const apiTimeout = setTimeout(() => {
-      log("TIMEOUT: Supabase não respondeu à atualização de senha em 10s", "error");
-    }, 10000);
+    // Se em 8 segundos não responder, mas o evento global disparar, o App.tsx cuidará da saída.
+    // Aqui apenas garantimos que o botão não fique travado para sempre se algo falhar silenciosamente.
+    const failSafe = setTimeout(() => {
+      if (loading) {
+        log("Failsafe atingido no formulário. Verificando estado global...", "warn");
+        setLoading(false);
+      }
+    }, 8000);
 
     try {
-      const { data, error } = await supabase.auth.updateUser({
+      const { error } = await supabase.auth.updateUser({
         password: password
       });
 
-      clearTimeout(apiTimeout);
+      clearTimeout(failSafe);
 
       if (error) {
-        log(`Erro retornado pelo Supabase: ${error.message}`, "error");
-        throw error;
+        log(`Erro no update: ${error.message}`, "error");
+        addToast(error.message, "error");
+        setLoading(false);
+      } else {
+        log("Sucesso retornado pela API de Update.");
+        addToast("Senha atualizada com sucesso!", "success");
+        if (onComplete) onComplete();
+        navigate('/', { replace: true });
       }
-
-      log("Sucesso: Senha atualizada no Auth!");
-      addToast("Senha atualizada! Acesso liberado.", "success");
-      
-      log("Limpando URL hash...");
-      if (window.history.replaceState) {
-        window.history.replaceState(null, "", window.location.pathname);
-      }
-
-      if (onComplete) onComplete();
-      
-      log("Navegando para a Home...");
-      navigate('/', { replace: true });
       
     } catch (error: any) {
-      log(`Exception capturada: ${error.message}`, "error");
-      addToast(error.message || "Erro ao atualizar. Verifique sua conexão.", "error");
-    } finally {
+      log(`Exceção no formulário: ${error.message}`, "error");
       setLoading(false);
-      log("handleUpdate concluído (Loading set to false)");
     }
   };
 
@@ -86,14 +83,14 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
           <div className="w-20 h-20 bg-primary-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-primary-500/20">
             <Lock size={40} className="text-primary-500" />
           </div>
-          <h1 className="text-4xl font-black text-white italic tracking-tighter uppercase mb-2">Nova Senha</h1>
-          <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest text-center">Aumente sua segurança na arena</p>
+          <h1 className="text-4xl font-black text-white italic tracking-tighter uppercase mb-2">Arena Segura</h1>
+          <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest text-center">Crie sua nova senha de acesso</p>
         </div>
 
         <form onSubmit={handleUpdate} className="space-y-4">
           <div className="bg-zinc-900/60 backdrop-blur-md border border-white/5 p-6 rounded-3xl shadow-xl space-y-4">
             <div className="space-y-1">
-               <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Senha de Acesso</label>
+               <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Nova Senha</label>
                <div className="relative group">
                   <Lock className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-primary-500 transition-colors" size={20} />
                   <input 
@@ -103,7 +100,7 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
                     minLength={6}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    className="w-full bg-black/60 border border-zinc-800 text-white pl-12 pr-4 py-3.5 rounded-xl focus:border-primary-500 focus:outline-none transition-all font-medium placeholder:text-zinc-700"
+                    className="w-full bg-black/60 border border-zinc-800 text-white pl-12 pr-4 py-3.5 rounded-xl focus:border-primary-500 focus:outline-none transition-all font-medium"
                   />
                </div>
             </div>
@@ -121,30 +118,20 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
               ) : (
                 <>
                   <BadgeCheck size={18} />
-                  Confirmar Nova Senha
+                  Confirmar Alteração
                 </>
               )}
             </button>
             
             <button 
               type="button"
-              onClick={() => {
-                log("Ação: Cancelar e voltar");
-                if (onComplete) onComplete();
-                navigate('/');
-              }}
-              className="w-full text-zinc-600 text-[10px] font-black uppercase tracking-widest hover:text-zinc-400 transition-colors py-2"
+              onClick={() => navigate('/')}
+              className="w-full text-zinc-600 text-[10px] font-black uppercase tracking-widest hover:text-zinc-400 py-2"
             >
-              Sair desta tela
+              Voltar ao Login
             </button>
           </div>
         </form>
-
-        <div className="mt-8 text-center px-4">
-          <p className="text-zinc-600 text-[10px] uppercase font-black tracking-widest opacity-40">
-            Dica: Se o botão "Salvando..." travar, abra o painel de debug no canto inferior direito.
-          </p>
-        </div>
       </div>
     </div>
   );
