@@ -23,7 +23,7 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
   const authListener = useRef<any>(null);
 
   useEffect(() => {
-    log("UpdatePassword: Motor v1.17.32 iniciado.");
+    log("UpdatePassword: Motor v1.17.33 iniciado.");
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       log(`Evento Auth: ${event}`);
