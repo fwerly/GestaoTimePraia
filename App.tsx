@@ -39,7 +39,7 @@ const AppContent: React.FC = () => {
     if (initAttempted.current) return;
     initAttempted.current = true;
 
-    log("App v1.17.29 - Boot Arena");
+    log("App v1.17.35 - Boot Arena");
 
     const init = async () => {
       try {
