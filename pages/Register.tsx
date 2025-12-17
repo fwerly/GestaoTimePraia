@@ -2,13 +2,15 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
-import { User, Mail, Lock, Phone } from '../components/ui/Icons';
+import { User, Mail, Lock, Phone, AlertTriangle, BadgeCheck } from '../components/ui/Icons';
 import { useToast } from '../context/ToastContext';
 
 export const Register: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [emailExists, setEmailExists] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,6 +20,7 @@ export const Register: React.FC = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setEmailExists(false);
 
     try {
       const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=84cc16&color=000&bold=true`;
@@ -38,41 +41,38 @@ export const Register: React.FC = () => {
 
       // 2. Se o e-mail já existe no sistema Auth do Supabase
       if (authError && (authError.message.includes('already registered') || authError.status === 422)) {
-        // Tentamos o login automático como "último recurso" se for a mesma senha
-        const { data: logData, error: logError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (!logError && logData.session) {
-           addToast("Você já tem conta! Entrando automaticamente...", "success");
-           navigate('/'); 
-           return;
-        } else {
-           // Se a senha estiver errada, damos a orientação correta
-           throw new Error("Este e-mail já faz parte do time. Tente entrar com sua senha ou peça para o treinador resetar.");
-        }
+        setEmailExists(true);
+        addToast("E-mail já cadastrado no nosso sistema.", "error");
+        setLoading(false);
+        return;
       }
 
-      if (authError) {
-        if (authError.message.includes('Database error')) {
-          throw new Error("Sem sinal com a arena. Tente novamente.");
-        }
-        throw authError;
-      }
+      if (authError) throw authError;
 
       // 3. Sucesso!
       if (authData.user) {
-        if (authData.session) {
-           addToast("Bem-vindo ao time! Acesso liberado.", "success");
-        } else {
-           addToast("Conta criada! Verifique seu e-mail para ativar.", "success");
-        }
+        addToast("Bem-vindo ao time! Cadastro realizado.", "success");
         navigate('/');
       }
     } catch (error: any) {
       console.error("Erro no registro:", error);
       addToast(error.message || "Não conseguimos criar sua conta.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendResetLink = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/#/`,
+      });
+      if (error) throw error;
+      setResetSent(true);
+      addToast("Link de recuperação enviado para seu e-mail!", "success");
+    } catch (error: any) {
+      addToast("Erro ao enviar link. Tente novamente mais tarde.", "error");
     } finally {
       setLoading(false);
     }
@@ -89,68 +89,104 @@ export const Register: React.FC = () => {
           <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest">Entre para a arena agora</p>
         </div>
 
-        <form onSubmit={handleRegister} className="space-y-3">
-          <div className="bg-zinc-900/60 backdrop-blur-sm border border-white/10 p-5 rounded-3xl space-y-3 shadow-xl">
-            <div className="relative group">
-              <User className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-primary-500" size={18} />
-              <input 
-                type="text" 
-                placeholder="Nome Completo" 
-                required
-                value={fullName}
-                onChange={e => setFullName(e.target.value)}
-                className="w-full bg-black/60 border border-zinc-800 text-white pl-11 pr-4 py-3 rounded-xl focus:border-primary-500 focus:outline-none transition-colors text-sm font-medium"
-              />
+        {emailExists ? (
+          <div className="bg-zinc-900/80 backdrop-blur-md border border-red-500/20 p-6 rounded-3xl space-y-4 shadow-2xl animate-in zoom-in-95">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-4 text-red-500 border border-red-500/20">
+                <AlertTriangle size={32} />
+              </div>
+              <h2 className="text-white font-black italic uppercase text-lg">E-mail já Cadastrado</h2>
+              <p className="text-zinc-400 text-sm mt-2">
+                Parece que você já faz parte do time. Esqueceu sua senha?
+              </p>
             </div>
 
-            <div className="relative group">
-              <Mail className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-primary-500" size={18} />
-              <input 
-                type="email" 
-                placeholder="E-mail" 
-                required
-                autoComplete="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full bg-black/60 border border-zinc-800 text-white pl-11 pr-4 py-3 rounded-xl focus:border-primary-500 focus:outline-none transition-colors text-sm font-medium"
-              />
-            </div>
+            {!resetSent ? (
+              <button 
+                onClick={handleSendResetLink}
+                disabled={loading}
+                className="w-full bg-white text-black font-black text-sm uppercase tracking-wider py-4 rounded-xl transition-all shadow-lg active:scale-95"
+              >
+                {loading ? 'Enviando...' : 'Sim, enviar link por e-mail'}
+              </button>
+            ) : (
+              <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-xl flex items-center gap-3">
+                <BadgeCheck className="text-green-500 shrink-0" size={20} />
+                <p className="text-green-400 text-xs font-bold uppercase">Verifique sua caixa de entrada!</p>
+              </div>
+            )}
 
-            <div className="relative group">
-              <Phone className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-primary-500" size={18} />
-              <input 
-                type="tel" 
-                placeholder="WhatsApp" 
-                required
-                value={whatsapp}
-                onChange={e => setWhatsapp(e.target.value)}
-                className="w-full bg-black/60 border border-zinc-800 text-white pl-11 pr-4 py-3 rounded-xl focus:border-primary-500 focus:outline-none transition-colors text-sm font-medium"
-              />
-            </div>
-
-            <div className="relative group">
-                <Lock className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-primary-500" size={18} />
+            <button 
+              onClick={() => setEmailExists(false)}
+              className="w-full text-zinc-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
+            >
+              Tentar outro e-mail
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleRegister} className="space-y-3">
+            <div className="bg-zinc-900/60 backdrop-blur-sm border border-white/10 p-5 rounded-3xl space-y-3 shadow-xl">
+              <div className="relative group">
+                <User className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-primary-500" size={18} />
                 <input 
-                  type="password" 
-                  placeholder="Senha (mín. 6 caracteres)" 
+                  type="text" 
+                  placeholder="Nome Completo" 
                   required
-                  minLength={6}
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  value={fullName}
+                  onChange={e => setFullName(e.target.value)}
                   className="w-full bg-black/60 border border-zinc-800 text-white pl-11 pr-4 py-3 rounded-xl focus:border-primary-500 focus:outline-none transition-colors text-sm font-medium"
                 />
-            </div>
-          </div>
+              </div>
 
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full bg-primary-500 hover:bg-primary-400 text-black font-black text-sm uppercase tracking-wider py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(132,204,22,0.3)] active:scale-[0.98] mt-4"
-          >
-            {loading ? 'Validando Entrada...' : 'Entrar na Arena'}
-          </button>
-        </form>
+              <div className="relative group">
+                <Mail className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-primary-500" size={18} />
+                <input 
+                  type="email" 
+                  placeholder="E-mail" 
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="w-full bg-black/60 border border-zinc-800 text-white pl-11 pr-4 py-3 rounded-xl focus:border-primary-500 focus:outline-none transition-colors text-sm font-medium"
+                />
+              </div>
+
+              <div className="relative group">
+                <Phone className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-primary-500" size={18} />
+                <input 
+                  type="tel" 
+                  placeholder="WhatsApp" 
+                  required
+                  value={whatsapp}
+                  onChange={e => setWhatsapp(e.target.value)}
+                  className="w-full bg-black/60 border border-zinc-800 text-white pl-11 pr-4 py-3 rounded-xl focus:border-primary-500 focus:outline-none transition-colors text-sm font-medium"
+                />
+              </div>
+
+              <div className="relative group">
+                  <Lock className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-primary-500" size={18} />
+                  <input 
+                    type="password" 
+                    placeholder="Senha (mín. 6 caracteres)" 
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="w-full bg-black/60 border border-zinc-800 text-white pl-11 pr-4 py-3 rounded-xl focus:border-primary-500 focus:outline-none transition-colors text-sm font-medium"
+                  />
+              </div>
+            </div>
+
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="w-full bg-primary-500 hover:bg-primary-400 text-black font-black text-sm uppercase tracking-wider py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(132,204,22,0.3)] active:scale-[0.98] mt-4"
+            >
+              {loading ? 'Validando Entrada...' : 'Entrar na Arena'}
+            </button>
+          </form>
+        )}
 
         <div className="mt-8 text-center bg-zinc-900/40 p-4 rounded-2xl border border-white/5 shadow-inner">
           <p className="text-zinc-500 text-xs uppercase font-bold tracking-wider">
