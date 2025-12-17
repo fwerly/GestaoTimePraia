@@ -23,7 +23,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     e.preventDefault();
     setLoading(true);
 
-    log(`Login: ${email}`);
+    log(`Tentativa de Login: ${email}`);
 
     // Bypass Admin para testes locais/emergência
     if (email === 'admin' && password === 'admin') {
@@ -129,7 +129,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
 
         <div className="absolute bottom-6 opacity-40">
-           <span className="text-zinc-600 text-[10px] uppercase font-black tracking-[0.2em]">System v1.17.25</span>
+           <span className="text-zinc-600 text-[10px] uppercase font-black tracking-[0.2em]">System v1.17.26</span>
         </div>
       </div>
     </div>
