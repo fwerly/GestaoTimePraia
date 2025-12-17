@@ -10,6 +10,7 @@ interface AuthContextType {
   loading: boolean;
   authReady: boolean;
   isRecoveryMode: boolean;
+  lastEvent: string | null;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   setRecoveryMode: (val: boolean) => void;
@@ -23,6 +24,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [lastEvent, setLastEvent] = useState<string | null>(null);
   const { log } = useDebug();
   const mounted = useRef(false);
 
@@ -55,12 +57,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (mounted.current) return;
     mounted.current = true;
 
-    log("Auth Engine v1.22.0 - Stable Release");
+    log("Auth Engine v1.24.0 - Online");
 
     const checkHash = () => {
       const hash = window.location.hash;
       if (hash.includes('type=recovery') || hash.includes('type=signup') || hash.includes('access_token=')) {
-        log("Sinal de recuperação detectado.");
+        log("Sinal de recuperação na URL.");
         setIsRecoveryMode(true);
       }
     };
@@ -78,6 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       log(`Evento Auth: ${event}`);
+      setLastEvent(event);
       setSession(newSession);
 
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
@@ -98,11 +101,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [log, loadProfile]);
 
   const signOut = async () => {
-    log("Limpando sessão v1.22.0...");
+    log("Limpando ambiente v1.24.0...");
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setIsRecoveryMode(false);
+    setLastEvent(null);
     window.history.replaceState(null, '', window.location.pathname);
   };
 
@@ -112,7 +116,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       session, 
       loading, 
       authReady,
-      isRecoveryMode, 
+      isRecoveryMode,
+      lastEvent,
       signOut, 
       refreshProfile,
       setRecoveryMode: setIsRecoveryMode

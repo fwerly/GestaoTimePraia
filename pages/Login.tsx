@@ -111,7 +111,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
 
         <div className="mt-16 opacity-30 group cursor-default">
-           <span className="text-zinc-600 text-[9px] uppercase font-black tracking-[0.4em] group-hover:text-primary-500 transition-colors">Engine Core v1.22.0</span>
+           <span className="text-zinc-600 text-[9px] uppercase font-black tracking-[0.4em] group-hover:text-primary-500 transition-colors">Engine Core v1.24.0</span>
         </div>
       </div>
     </div>
