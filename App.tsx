@@ -25,14 +25,13 @@ const AppContent: React.FC = () => {
 
   const loadProfile = useCallback(async () => {
     try {
-      log("Carregando perfil do usuário...");
       const profile = await getCurrentProfile();
       if (profile) {
         setUser(profile);
-        log(`Sessão ativa para: ${profile.full_name}`);
+        log(`Perfil: ${profile.full_name}`);
       }
     } catch (err: any) {
-      log(`Erro ao carregar perfil: ${err.message}`, 'error');
+      log(`Erro perfil: ${err.message}`, 'error');
     }
   }, [log]);
 
@@ -41,7 +40,7 @@ const AppContent: React.FC = () => {
     initAttempted.current = true;
 
     let mounted = true;
-    log("App v1.17.26 - Iniciando...");
+    log("App v1.17.27 - Iniciando...");
 
     const init = async () => {
       try {
@@ -49,39 +48,19 @@ const AppContent: React.FC = () => {
         const isRecovery = href.includes('type=recovery') || href.includes('access_token=');
         
         if (isRecovery) {
-          log("Fluxo de recuperação detectado. Aguardando processamento do token...", "warn");
+          log("Redirecionando para fluxo de recuperação de senha.", "warn");
           setForcePasswordUpdate(true);
         }
 
-        // Busca de Sessão
-        log("Solicitando estado inicial ao Supabase...");
-        
-        // Se for recuperação, não usamos timeout agressivo para dar tempo ao SDK
-        if (isRecovery) {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session && mounted) {
-            log(`Token validado com sucesso: ${session.user.email}`);
-            await loadProfile();
-          }
-        } else {
-          // Para login normal, mantemos o timeout para evitar tela branca
-          const sessionPromise = supabase.auth.getSession();
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error("Timeout")), 3500)
-          );
-
-          try {
-            const result = await Promise.race([sessionPromise, timeoutPromise]) as any;
-            if (result?.data?.session && mounted) {
-              await loadProfile();
-            }
-          } catch (e) {
-            log("Timeout na busca de sessão. Prosseguindo como deslogado.", "warn");
-          }
+        // Busca básica de sessão
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && mounted) {
+          log(`Sessão encontrada: ${session.user.email}`);
+          await loadProfile();
         }
 
       } catch (err: any) {
-        log(`Erro crítico init: ${err.message}`, "error");
+        log(`Erro init: ${err.message}`, "error");
       } finally {
         if (mounted) {
           setLoading(false);
@@ -92,10 +71,9 @@ const AppContent: React.FC = () => {
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      log(`Evento de Autenticação: ${event}`);
+      log(`Evento Auth: ${event}`);
       
       if (event === 'PASSWORD_RECOVERY') {
-        log("PASSWORD_RECOVERY disparado. Forçando tela de senha.", "warn");
         setForcePasswordUpdate(true);
       }
 
@@ -103,15 +81,12 @@ const AppContent: React.FC = () => {
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
           await loadProfile();
           if (event === 'USER_UPDATED' && forcePasswordUpdate) {
-            log("Senha atualizada. Voltando ao fluxo normal.");
             setForcePasswordUpdate(false);
           }
         }
-      } else {
-        if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setForcePasswordUpdate(false);
-        }
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setForcePasswordUpdate(false);
       }
     });
 
@@ -130,8 +105,8 @@ const AppContent: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-10 text-center">
-        <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-8"></div>
-        <p className="text-zinc-500 text-xs font-black uppercase tracking-[0.2em] animate-pulse">Autenticando...</p>
+        <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-8 shadow-[0_0_15px_rgba(132,204,22,0.2)]"></div>
+        <p className="text-zinc-600 text-[10px] font-black uppercase tracking-[0.2em] animate-pulse">Acessando Arena...</p>
       </div>
     );
   }

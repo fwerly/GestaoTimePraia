@@ -23,9 +23,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     e.preventDefault();
     setLoading(true);
 
-    log(`Tentativa de Login: ${email}`);
+    log(`Login: ${email}`);
 
-    // Bypass Admin para testes locais/emergência
     if (email === 'admin' && password === 'admin') {
       onLogin(MOCK_USER_ADMIN);
       addToast("Bem-vindo, Treinador!", "success");
@@ -48,8 +47,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           .eq('id', data.session.user.id)
           .maybeSingle();
         
-        if (pError) log(`Erro Perfil: ${pError.message}`, 'error');
-
         if (profile) {
           onLogin(profile as Profile);
           addToast(`Bora pro treino! 🚀`, "success");
@@ -58,7 +55,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         }
       }
     } catch (error: any) {
-      log(`Erro Auth: ${error.message}`, 'error');
+      log(`Erro: ${error.message}`, 'error');
       addToast(error.message || "Acesso negado.", "error");
     } finally {
       setLoading(false);
@@ -129,7 +126,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
 
         <div className="absolute bottom-6 opacity-40">
-           <span className="text-zinc-600 text-[10px] uppercase font-black tracking-[0.2em]">System v1.17.26</span>
+           <span className="text-zinc-600 text-[10px] uppercase font-black tracking-[0.2em]">System v1.17.27</span>
         </div>
       </div>
     </div>
