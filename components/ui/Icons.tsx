@@ -24,7 +24,10 @@ import
   Phone,
   Home,
   Chrome,
-  Edit
+  Edit,
+  Search,
+  ShieldAlert,
+  BadgeCheck
 } from 'lucide-react';
 
 export { 
@@ -52,5 +55,8 @@ export {
   Phone,
   Home,
   Chrome,
-  Edit
+  Edit,
+  Search,
+  ShieldAlert,
+  BadgeCheck
 };

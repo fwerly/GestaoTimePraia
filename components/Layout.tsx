@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LogOut, Calendar, Trophy, Wallet } from './ui/Icons';
+import { LogOut, Calendar, Trophy, Wallet, Users } from './ui/Icons';
 import { Profile } from '../types';
 
 interface LayoutProps {
@@ -62,34 +62,47 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       </main>
 
       {/* Bottom Navigation - Enhanced Floating Glass Bar */}
-      <nav className="fixed bottom-6 left-4 right-4 max-w-[calc(100%-2rem)] md:max-w-[26rem] mx-auto bg-black/60 backdrop-blur-2xl border border-white/10 rounded-2xl py-3 px-6 flex justify-between items-center z-40 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+      <nav className="fixed bottom-6 left-4 right-4 max-w-[calc(100%-2rem)] md:max-w-[26rem] mx-auto bg-black/60 backdrop-blur-2xl border border-white/10 rounded-2xl py-3 px-4 flex justify-between items-center z-40 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
         
         <button 
           onClick={() => handleNav(user.role === 'admin' ? '/admin' : '/student')}
-          className={`flex flex-col items-center gap-1 transition-all duration-300 w-16 ${isActive(user.role === 'admin' ? 'admin' : 'student') && !isActive('finance') ? 'text-primary-400 scale-110 drop-shadow-[0_0_8px_rgba(132,204,22,0.5)]' : 'text-zinc-500 hover:text-zinc-300'}`}
+          className={`flex flex-col items-center gap-1 transition-all duration-300 w-14 ${isActive(user.role === 'admin' ? 'admin' : 'student') && !isActive('finance') && !isActive('users') ? 'text-primary-400 scale-110 drop-shadow-[0_0_8px_rgba(132,204,22,0.5)]' : 'text-zinc-500 hover:text-zinc-300'}`}
         >
-          {user.role === 'admin' ? <Calendar size={22} /> : <Trophy size={22} />}
-          <span className="text-[10px] font-bold uppercase tracking-wide">Inicio</span>
+          {user.role === 'admin' ? <Calendar size={20} /> : <Trophy size={20} />}
+          <span className="text-[9px] font-bold uppercase tracking-wide">Inicio</span>
         </button>
 
         <button 
           onClick={() => handleNav(user.role === 'admin' ? '/admin/finance' : '/student/finance')}
-          className={`relative flex flex-col items-center gap-1 transition-all duration-300 w-16 ${isActive('finance') ? 'text-primary-400 scale-110 drop-shadow-[0_0_8px_rgba(132,204,22,0.5)]' : 'text-zinc-500 hover:text-zinc-300'}`}
+          className={`relative flex flex-col items-center gap-1 transition-all duration-300 w-14 ${isActive('finance') ? 'text-primary-400 scale-110 drop-shadow-[0_0_8px_rgba(132,204,22,0.5)]' : 'text-zinc-500 hover:text-zinc-300'}`}
         >
-          <Wallet size={22} />
-          <span className="text-[10px] font-bold uppercase tracking-wide">Finanças</span>
+          <Wallet size={20} />
+          <span className="text-[9px] font-bold uppercase tracking-wide">Finanças</span>
           {isActive('finance') && (
             <span className="absolute -bottom-2 w-1 h-1 bg-primary-400 rounded-full shadow-[0_0_10px_#84cc16]"></span>
           )}
         </button>
 
+        {user.role === 'admin' && (
+          <button 
+            onClick={() => handleNav('/admin/users')}
+            className={`relative flex flex-col items-center gap-1 transition-all duration-300 w-14 ${isActive('users') ? 'text-primary-400 scale-110 drop-shadow-[0_0_8px_rgba(132,204,22,0.5)]' : 'text-zinc-500 hover:text-zinc-300'}`}
+          >
+            <Users size={20} />
+            <span className="text-[9px] font-bold uppercase tracking-wide">Equipe</span>
+            {isActive('users') && (
+              <span className="absolute -bottom-2 w-1 h-1 bg-primary-400 rounded-full shadow-[0_0_10px_#84cc16]"></span>
+            )}
+          </button>
+        )}
+
         <button 
-          className="flex flex-col items-center gap-1 text-zinc-500 hover:text-zinc-300 transition-all w-16"
+          className="flex flex-col items-center gap-1 text-zinc-500 hover:text-zinc-300 transition-all w-14"
         >
           <div className="p-0.5 rounded-full border border-zinc-600 bg-black/50">
              <img src={user.avatar_url} alt="Profile" className="w-5 h-5 rounded-full" />
           </div>
-          <span className="text-[10px] font-bold uppercase tracking-wide">Perfil</span>
+          <span className="text-[9px] font-bold uppercase tracking-wide">Perfil</span>
         </button>
       </nav>
     </div>

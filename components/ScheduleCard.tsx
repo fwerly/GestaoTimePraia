@@ -145,9 +145,9 @@ export const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, currentUse
             <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Lista de Presença</h4>
             <div className="grid grid-cols-2 gap-2">
               {attendees.map(att => (
-                <div key={att.id} className="flex items-center gap-2 text-xs text-zinc-300">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary-500 shadow-[0_0_5px_rgba(132,204,22,0.8)]"></div>
-                  <span className="font-medium">{att.profile?.full_name.split(' ')[0]}</span>
+                <div key={att.id} className="flex items-center gap-2 text-xs text-zinc-300 overflow-hidden">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary-500 shadow-[0_0_5px_rgba(132,204,22,0.8)] shrink-0"></div>
+                  <span className="font-medium truncate" title={att.profile?.full_name}>{att.profile?.full_name}</span>
                 </div>
               ))}
             </div>

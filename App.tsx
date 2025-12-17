@@ -9,6 +9,7 @@ import { StudentDashboard } from './pages/StudentDashboard';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { StudentFinance } from './pages/StudentFinance';
 import { AdminFinance } from './pages/AdminFinance';
+import { AdminUsers } from './pages/AdminUsers';
 import { Profile } from './types';
 import { ToastProvider } from './context/ToastContext';
 
@@ -101,6 +102,13 @@ const App: React.FC = () => {
               path="/admin/finance" 
               element={
                 user && user.role === 'admin' ? <AdminFinance user={user} /> : <Navigate to="/" />
+              } 
+            />
+
+            <Route 
+              path="/admin/users" 
+              element={
+                user && user.role === 'admin' ? <AdminUsers user={user} /> : <Navigate to="/" />
               } 
             />
           </Routes>

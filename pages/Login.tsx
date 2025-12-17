@@ -59,13 +59,16 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         if (!profile && data.session.user) {
           console.log("Perfil não encontrado. Tentando criar automaticamente...");
           const metadata = data.session.user.user_metadata || {};
+          // Tenta extrair um nome do email caso o metadata esteja vazio
+          const emailName = data.session.user.email?.split('@')[0];
+          const displayName = metadata.full_name || emailName || 'Atleta';
           
           const newProfile = {
              id: data.session.user.id,
-             full_name: metadata.full_name || 'Novo Usuário',
+             full_name: displayName,
              role: 'student', // Default seguro
              whatsapp: metadata.whatsapp || null,
-             avatar_url: metadata.avatar_url || `https://ui-avatars.com/api/?name=User&background=random`
+             avatar_url: metadata.avatar_url || `https://ui-avatars.com/api/?name=${displayName}&background=random`
           };
 
           const { data: createdProfile, error: createError } = await supabase
@@ -177,7 +180,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
         {/* Versão */}
         <div className="absolute bottom-6 flex flex-col items-center gap-1 opacity-40">
-           <span className="text-zinc-600 text-[10px] uppercase font-black tracking-[0.2em]">System v1.13</span>
+           <span className="text-zinc-600 text-[10px] uppercase font-black tracking-[0.2em]">System v1.17.4</span>
            <div className="w-8 h-0.5 bg-zinc-800 rounded-full"></div>
         </div>
       </div>

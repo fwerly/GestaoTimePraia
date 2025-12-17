@@ -115,6 +115,56 @@ export const checkOut = async (scheduleId: string, userId: string): Promise<void
   }
 };
 
+// --- GESTÃO DE USUÁRIOS (NOVO) ---
+
+export const getAllProfiles = async (): Promise<Profile[]> => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('full_name', { ascending: true });
+
+  if (error) {
+    console.error('Erro ao buscar perfis:', error);
+    return [];
+  }
+  return data as Profile[];
+};
+
+export const deleteUserProfile = async (userId: string): Promise<void> => {
+  console.log("Iniciando exclusão forçada do usuário:", userId);
+
+  // 1. Limpeza Explícita de Checkins
+  const { error: errCheckins } = await supabase.from('checkins').delete().eq('user_id', userId);
+  if (errCheckins) console.warn("Checkins warning:", errCheckins);
+  
+  // 2. Limpeza Explícita de Pagamentos
+  const { error: errPayments } = await supabase.from('payments').delete().eq('student_id', userId);
+  if (errPayments) console.warn("Payments warning:", errPayments);
+
+  // 3. Excluir o Perfil E VERIFICAR se foi excluído
+  // O .select() garante que retornamos os dados excluídos. Se voltar vazio, o RLS bloqueou.
+  const { data, error } = await supabase.from('profiles').delete().eq('id', userId).select();
+
+  if (error) {
+    console.error("Erro fatal ao excluir perfil:", error);
+    
+    if (error.code === '42883') {
+       throw new Error("ERRO SQL: Conflito UUID vs Texto. Rode o script de correção.");
+    }
+    if (error.code === '42501') {
+       throw new Error("PERMISSÃO NEGADA: Você não tem permissão para excluir este usuário.");
+    }
+    throw new Error(error.message || "Erro desconhecido ao excluir perfil.");
+  }
+
+  // Verificação de segurança: Se data for vazio, o banco disse "OK" mas não apagou nada (RLS)
+  if (!data || data.length === 0) {
+     throw new Error("Exclusão ignorada pelo Banco. Verifique se você é Admin e se as Políticas RLS estão atualizadas.");
+  }
+  
+  console.log("Perfil excluído com sucesso.");
+};
+
 // --- FUNÇÕES FINANCEIRAS & MERCADO PAGO ---
 
 export const getStudents = async (): Promise<Profile[]> => {
@@ -176,11 +226,10 @@ export const generateMercadoPagoPix = async (paymentId: string, email: string) =
 
     const contentType = response.headers.get("content-type");
     
-    // Se não for JSON, provavelmente é erro do Vercel (500 html, 404 html, etc)
     if (!contentType || !contentType.includes("application/json")) {
       const text = await response.text();
       console.error("Non-JSON API Response:", text);
-      throw new Error(`Erro API (Status ${response.status}): Resposta inválida do servidor. Pode ser um erro de configuração ou timeout.`);
+      throw new Error(`Erro API (Status ${response.status}): Resposta inválida do servidor.`);
     }
 
     const data = await response.json();
@@ -199,7 +248,6 @@ export const generateMercadoPagoPix = async (paymentId: string, email: string) =
 // --- HELPER DE DADOS DE TESTE ---
 
 export const generateMockData = async () => {
-  // 1. Criar Alunos Fictícios
   const mockStudents = [
     { 
       id: `mock-${Math.random().toString(36).substr(2, 9)}`, 
@@ -222,46 +270,39 @@ export const generateMockData = async () => {
   ];
 
   const { error: err1 } = await supabase.from('profiles').upsert(mockStudents);
-  if (err1) {
-    console.error('Erro ao criar alunos:', err1);
-    throw new Error('Falha ao criar alunos');
-  }
+  if (err1) throw new Error('Falha ao criar alunos');
 
-  // 2. Criar Pagamentos (Vencidos e Normais)
   const payments = [
     {
       student_id: mockStudents[0].id,
       description: 'Mensalidade Abril (Atrasada)',
       amount: 150.00,
       status: 'overdue',
-      due_date: new Date(new Date().setDate(new Date().getDate() - 15)).toISOString(), // 15 dias atrás
+      due_date: new Date(new Date().setDate(new Date().getDate() - 15)).toISOString(),
     },
     {
       student_id: mockStudents[1].id,
       description: 'Mensalidade Março (Muito Atrasada)',
       amount: 150.00,
       status: 'overdue',
-      due_date: new Date(new Date().setDate(new Date().getDate() - 45)).toISOString(), // 45 dias atrás
+      due_date: new Date(new Date().setDate(new Date().getDate() - 45)).toISOString(),
     },
     {
       student_id: mockStudents[2].id,
       description: 'Torneio Interno',
       amount: 80.00,
       status: 'pending',
-      due_date: new Date(new Date().setDate(new Date().getDate() + 5)).toISOString(), // Futuro
+      due_date: new Date(new Date().setDate(new Date().getDate() + 5)).toISOString(),
     },
     {
       student_id: mockStudents[0].id,
       description: 'Uniforme 2024',
       amount: 120.00,
       status: 'pending',
-      due_date: new Date().toISOString(), // Hoje
+      due_date: new Date().toISOString(),
     }
   ];
 
   const { error: err2 } = await supabase.from('payments').insert(payments);
-  if (err2) {
-    console.error('Erro ao criar pagamentos:', err2);
-    throw new Error('Falha ao criar pagamentos');
-  }
+  if (err2) throw new Error('Falha ao criar pagamentos');
 };
