@@ -55,12 +55,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (mounted.current) return;
     mounted.current = true;
 
-    log("Auth Engine v1.21.0 - Inicializado");
+    log("Auth Engine v1.22.0 - Stable Release");
 
     const checkHash = () => {
       const hash = window.location.hash;
       if (hash.includes('type=recovery') || hash.includes('type=signup') || hash.includes('access_token=')) {
-        log("Link de recuperação detectado.");
+        log("Sinal de recuperação detectado.");
         setIsRecoveryMode(true);
       }
     };
@@ -98,12 +98,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [log, loadProfile]);
 
   const signOut = async () => {
-    log("Limpando sessão e modo de segurança...");
+    log("Limpando sessão v1.22.0...");
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setIsRecoveryMode(false);
-    // Remove hash da URL de forma limpa
     window.history.replaceState(null, '', window.location.pathname);
   };
 

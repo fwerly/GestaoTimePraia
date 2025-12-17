@@ -27,16 +27,16 @@ export const UpdatePassword: React.FC = () => {
 
         if (accessToken) {
           setAttemptingFix(true);
-          log("Sincronizando credenciais de acesso...");
+          log("Sincronizando v1.22.0...");
           try {
             const { error } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken || ''
             });
             if (error) log("Erro de sincronização: " + error.message, "error");
-            else log("Chaves de acesso validadas!");
+            else log("Chaves validadas!");
           } catch (e) {
-            log("Erro fatal ao processar chaves.");
+            log("Erro fatal nas chaves.");
           } finally {
             setAttemptingFix(false);
           }
@@ -54,7 +54,7 @@ export const UpdatePassword: React.FC = () => {
     }
 
     setLoading(true);
-    log("Gravando nova senha no banco de dados...");
+    log("Gravando nova senha v1.22.0...");
 
     try {
       const { error } = await supabase.auth.updateUser({ password });
@@ -66,9 +66,7 @@ export const UpdatePassword: React.FC = () => {
         return;
       }
 
-      log("DATABASE SUCCESS: Registro atualizado.");
-      
-      // Remove hash da URL IMEDIATAMENTE para evitar loops
+      log("DATABASE SUCCESS.");
       window.history.replaceState(null, '', window.location.pathname);
       
       setSuccess(true);
@@ -76,14 +74,14 @@ export const UpdatePassword: React.FC = () => {
       addToast("Senha redefinida!", "success");
 
     } catch (error: any) {
-      log("Erro de conexão na arena.", "error");
+      log("Erro de rede v1.22.0.", "error");
       addToast("Erro de rede.", "error");
       setLoading(false);
     }
   };
 
   const handleFinish = async () => {
-    log("Recuperação completa. Voltando ao login.");
+    log("Recuperação completa.");
     await signOut(); 
     setRecoveryMode(false);
     navigate('/', { replace: true });
@@ -129,7 +127,7 @@ export const UpdatePassword: React.FC = () => {
                <RefreshCw size={40} className="animate-spin opacity-50" />
              </div>
              <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest animate-pulse italic">
-               Sincronizando v1.21.0...
+               Sincronizando v1.22.0...
              </p>
              <button onClick={() => window.location.reload()} className="text-primary-500 text-[10px] font-black uppercase underline">Recarregar Página</button>
           </div>
@@ -168,7 +166,7 @@ export const UpdatePassword: React.FC = () => {
         )}
 
         <div className="mt-16 opacity-30">
-           <span className="text-zinc-600 text-[9px] uppercase font-black tracking-[0.4em]">Engine Core v1.21.0</span>
+           <span className="text-zinc-600 text-[9px] uppercase font-black tracking-[0.4em]">Engine Core v1.22.0</span>
         </div>
       </div>
     </div>
