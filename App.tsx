@@ -28,13 +28,10 @@ const AppContent: React.FC = () => {
       const profile = await getCurrentProfile();
       if (profile) {
         setUser(profile);
-        log(`Perfil carregado: ${profile.full_name}`);
-        return profile;
+        log(`Perfil: ${profile.full_name}`);
       }
-      return null;
     } catch (err: any) {
-      log(`Erro ao carregar perfil: ${err.message}`, 'error');
-      return null;
+      log(`Erro perfil: ${err.message}`, 'error');
     }
   }, [log]);
 
@@ -42,8 +39,7 @@ const AppContent: React.FC = () => {
     if (initAttempted.current) return;
     initAttempted.current = true;
 
-    let mounted = true;
-    log("App v1.17.28 - Iniciando Arena...");
+    log("App v1.17.29 - Boot Arena");
 
     const init = async () => {
       try {
@@ -51,29 +47,28 @@ const AppContent: React.FC = () => {
         const isRecovery = href.includes('type=recovery') || href.includes('access_token=');
         
         if (isRecovery) {
-          log("Redirecionando para fluxo de recuperação de senha.", "warn");
+          log("Modo Recuperação Detectado. Saltando loading...", "warn");
           setForcePasswordUpdate(true);
+          setLoading(false);
+          return; // Interrompe boot normal
         }
 
         const { data: { session } } = await supabase.auth.getSession();
-        if (session && mounted) {
-          log(`Sessão inicial ativa: ${session.user.email}`);
+        if (session) {
+          log(`Sessão ativa: ${session.user.email}`);
           await loadProfile();
         }
-
       } catch (err: any) {
-        log(`Erro init: ${err.message}`, "error");
+        log(`Erro boot: ${err.message}`, "error");
       } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     };
 
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      log(`Evento Auth: ${event}`);
+      log(`Auth Event: ${event}`);
       
       if (event === 'PASSWORD_RECOVERY') {
         setForcePasswordUpdate(true);
@@ -81,11 +76,14 @@ const AppContent: React.FC = () => {
 
       if (session) {
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-          await loadProfile();
-          // Se entramos via SIGNED_IN (token) e estávamos em recuperação, podemos liberar se o perfil estiver ok
-          if (forcePasswordUpdate && event === 'USER_UPDATED') {
-            log("Senha confirmada. Liberando Dashboard.");
+          // Se não estivermos trocando senha, carrega o perfil normalmente
+          if (!forcePasswordUpdate) {
+            await loadProfile();
+          } else if (event === 'USER_UPDATED') {
+            // Se acabou de atualizar a senha, libera o dashboard
+            log("Senha atualizada via evento.");
             setForcePasswordUpdate(false);
+            await loadProfile();
           }
         }
       } else if (event === 'SIGNED_OUT') {
@@ -95,10 +93,9 @@ const AppContent: React.FC = () => {
     });
 
     return () => {
-      mounted = false;
       subscription.unsubscribe();
     };
-  }, [loadProfile, log, forcePasswordUpdate]);
+  }, [loadProfile, log]);
 
   const handleLogout = async () => {
     await signOut();
@@ -109,8 +106,8 @@ const AppContent: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-10 text-center">
-        <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-8 shadow-[0_0_15px_rgba(132,204,22,0.2)]"></div>
-        <p className="text-zinc-600 text-[10px] font-black uppercase tracking-[0.2em] animate-pulse">Sincronizando...</p>
+        <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-8 shadow-[0_0_20px_rgba(132,204,22,0.1)]"></div>
+        <p className="text-zinc-600 text-[10px] font-black uppercase tracking-[0.2em] animate-pulse">Entrando na Arena...</p>
       </div>
     );
   }
