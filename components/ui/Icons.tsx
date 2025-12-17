@@ -1,3 +1,5 @@
+
+// Fix: Added ShieldCheck and RefreshCw to resolve module export errors in UpdatePassword.tsx
 import 
 { 
   Calendar, 
@@ -27,7 +29,9 @@ import
   Edit,
   Search,
   ShieldAlert,
-  BadgeCheck
+  BadgeCheck,
+  ShieldCheck,
+  RefreshCw
 } from 'lucide-react';
 
 export { 
@@ -58,5 +62,7 @@ export {
   Edit,
   Search,
   ShieldAlert,
-  BadgeCheck
+  BadgeCheck,
+  ShieldCheck,
+  RefreshCw
 };

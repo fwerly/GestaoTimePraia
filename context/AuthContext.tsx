@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { Profile } from '../types';
 import { useDebug } from './DebugContext';
@@ -8,6 +8,7 @@ interface AuthContextType {
   user: Profile | null;
   session: any;
   loading: boolean;
+  authReady: boolean;
   isRecoveryMode: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -20,8 +21,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<Profile | null>(null);
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
   const { log } = useDebug();
+  const mounted = useRef(false);
 
   const loadProfile = useCallback(async (userId: string) => {
     try {
@@ -34,34 +37,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
       if (data) {
         setUser(data as Profile);
-        log(`Perfil carregado: ${data.full_name}`);
+        log(`Perfil [${data.role}]: ${data.full_name}`);
       }
     } catch (err: any) {
-      log(`Erro ao carregar perfil: ${err.message}`, 'error');
+      log(`Erro de Perfil: ${err.message}`, 'error');
     }
   }, [log]);
 
-  const refreshProfile = async () => {
+  // Fix: Added implementation for refreshProfile required by AuthContextType interface
+  const refreshProfile = useCallback(async () => {
     if (session?.user?.id) {
+      log("Manual profile refresh triggered");
       await loadProfile(session.user.id);
     }
-  };
+  }, [session, loadProfile, log]);
 
   useEffect(() => {
-    log("Iniciando Auth Engine v1.18.0");
+    if (mounted.current) return;
+    mounted.current = true;
 
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        loadProfile(session.user.id);
+    log("Auth Engine v1.20.0 - On Fire");
+
+    // Detectar modo recuperação pela URL
+    const checkHash = () => {
+      const hash = window.location.hash;
+      if (hash.includes('type=recovery') || hash.includes('type=signup') || hash.includes('access_token=')) {
+        log("Sinal de recuperação detectado na URL.");
+        setIsRecoveryMode(true);
+      }
+    };
+
+    checkHash();
+
+    // Inicializar Sessão
+    supabase.auth.getSession().then(({ data: { session: initSession } }) => {
+      setSession(initSession);
+      if (initSession) {
+        loadProfile(initSession.user.id);
       }
       setLoading(false);
+      setAuthReady(true);
     });
 
-    // Listen for auth changes
+    // Escutar Mudanças
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      log(`Evento Auth Global: ${event}`);
+      log(`Evento Global: ${event}`);
       setSession(newSession);
 
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
@@ -82,7 +102,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [log, loadProfile]);
 
   const signOut = async () => {
+    log("Limpando ambiente de segurança...");
     await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setIsRecoveryMode(false);
+    window.location.hash = ''; // Limpa hash da URL no logout
   };
 
   return (
@@ -90,6 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user, 
       session, 
       loading, 
+      authReady,
       isRecoveryMode, 
       signOut, 
       refreshProfile,

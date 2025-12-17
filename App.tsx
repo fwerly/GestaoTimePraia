@@ -15,14 +15,17 @@ import { AdminFinance } from './pages/AdminFinance';
 import { AdminUsers } from './pages/AdminUsers';
 
 const AppContent: React.FC = () => {
-  const { user, loading, isRecoveryMode, signOut } = useAuth();
+  const { user, loading, authReady, isRecoveryMode, signOut } = useAuth();
 
-  if (loading) {
+  if (loading || !authReady) {
     return (
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-10 text-center">
-        <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-8"></div>
-        <p className="text-zinc-600 text-[10px] font-black uppercase tracking-[0.2em] animate-pulse italic">
-          Sincronizando com a Arena...
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-zinc-900 border-t-primary-500 rounded-full animate-spin mb-8"></div>
+          <div className="absolute inset-0 bg-primary-500 blur-[50px] opacity-10 animate-pulse"></div>
+        </div>
+        <p className="text-zinc-600 text-[10px] font-black uppercase tracking-[0.3em] animate-pulse italic">
+          Sincronizando v1.20.0
         </p>
       </div>
     );
@@ -38,7 +41,6 @@ const AppContent: React.FC = () => {
         <Route path="/" element={!user ? <Login onLogin={() => {}} /> : <Navigate to={user.role === 'admin' ? '/admin' : '/student'} />} />
         <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
         
-        {/* Protected Routes */}
         <Route path="/student" element={user?.role === 'student' ? <StudentDashboard user={user} /> : <Navigate to="/" />} />
         <Route path="/student/finance" element={user?.role === 'student' ? <StudentFinance user={user} /> : <Navigate to="/" />} />
         
