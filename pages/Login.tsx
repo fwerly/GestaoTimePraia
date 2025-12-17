@@ -23,13 +23,13 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     e.preventDefault();
     setLoading(true);
 
-    log(`Iniciando login: ${email}`);
+    log(`Tentativa de Login: ${email}`);
 
+    // Bypasses para testes
     if (email === 'admin' && password === 'admin') {
-      setTimeout(() => {
-        onLogin(MOCK_USER_ADMIN);
-        addToast("Bem-vindo, Treinador!", "success");
-      }, 500);
+      onLogin(MOCK_USER_ADMIN);
+      addToast("Bem-vindo, Treinador!", "success");
+      setLoading(false);
       return;
     }
 
@@ -42,18 +42,23 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       if (error) throw error;
 
       if (data.session) {
-        let { data: profile } = await supabase
+        const { data: profile, error: pError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', data.session.user.id)
           .maybeSingle();
         
+        if (pError) log(`Erro ao buscar perfil: ${pError.message}`, 'error');
+
         if (profile) {
           onLogin(profile as Profile);
           addToast(`Bora pro treino! 🚀`, "success");
+        } else {
+          addToast("Conta ativa, mas perfil não encontrado.", "error");
         }
       }
     } catch (error: any) {
+      log(`Erro no login: ${error.message}`, 'error');
       addToast(error.message || "Erro no acesso.", "error");
     } finally {
       setLoading(false);
@@ -72,10 +77,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </div>
         </div>
         
-        <h1 className="text-5xl font-black text-white mb-2 tracking-tighter italic uppercase">
+        <h1 className="text-5xl font-black text-white mb-2 tracking-tighter italic uppercase text-center">
           Gestao<span className="text-primary-500">Time</span>
         </h1>
-        <p className="text-zinc-400 mb-10 text-center font-medium uppercase text-xs">Performance . Foco . Disciplina</p>
+        <p className="text-zinc-400 mb-10 text-center font-medium uppercase text-xs tracking-widest">Performance . Foco . Disciplina</p>
 
         <div className="w-full bg-zinc-900/50 backdrop-blur-md border border-white/5 p-6 rounded-3xl shadow-xl">
           <form onSubmit={handleLogin} className="space-y-4">
@@ -84,7 +89,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                <div className="relative group">
                   <Mail className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-primary-500 transition-colors" size={20} />
                   <input 
-                    type="text" 
+                    type="email" 
                     placeholder="seu@email.com" 
                     value={email}
                     onChange={e => setEmail(e.target.value)}
@@ -112,7 +117,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               disabled={loading}
               className="w-full bg-primary-500 hover:bg-primary-400 text-black font-black text-sm uppercase tracking-wider py-4 rounded-xl shadow-lg mt-4 transition-all active:scale-95"
             >
-              {loading ? 'Entrando...' : 'Entrar na Arena'}
+              {loading ? 'Validando...' : 'Entrar na Arena'}
             </button>
           </form>
         </div>
@@ -124,7 +129,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
 
         <div className="absolute bottom-6 opacity-40">
-           <span className="text-zinc-600 text-[10px] uppercase font-black tracking-[0.2em]">System v1.17.22</span>
+           <span className="text-zinc-600 text-[10px] uppercase font-black tracking-[0.2em]">System v1.17.24</span>
         </div>
       </div>
     </div>

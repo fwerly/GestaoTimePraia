@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './utils/supabaseClient';
 import { getCurrentProfile, signOut } from './services/authService';
@@ -16,68 +16,72 @@ import { Profile } from './types';
 import { ToastProvider } from './context/ToastContext';
 import { DebugProvider, useDebug } from './context/DebugContext';
 
-// Função para corrigir URLs malformadas vindas do e-mail (evita o /#/#)
-const normalizeUrlHash = () => {
-  const href = window.location.href;
-  if (href.includes('/#/#')) {
-    const fixedUrl = href.replace('/#/#', '/#');
-    console.log("Corrigindo Double Hash na URL:", fixedUrl);
-    window.location.href = fixedUrl;
-    return true;
-  }
-  return false;
-};
-
 const AppContent: React.FC = () => {
   const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [forcePasswordUpdate, setForcePasswordUpdate] = useState(false);
+  const [showRetry, setShowRetry] = useState(false);
   const { log } = useDebug();
+
+  // Memoized profile loader
+  const loadProfile = useCallback(async () => {
+    try {
+      const profile = await getCurrentProfile();
+      if (profile) {
+        setUser(profile);
+        log(`Perfil carregado: ${profile.full_name}`);
+      }
+    } catch (err: any) {
+      log(`Erro ao carregar perfil: ${err.message}`, 'error');
+    }
+  }, [log]);
 
   useEffect(() => {
     let mounted = true;
+    log("App v1.17.24 - Inicializando...");
 
-    // Se corrigiu a URL, interrompe esta execução pois a página vai recarregar
-    if (normalizeUrlHash()) return;
-
-    log("App Iniciado v1.17.22");
-
-    const safetyTimeout = setTimeout(() => {
-      if (mounted && loading) {
-        log("Safety timeout atingido. Liberando UI.", "warn");
-        setLoading(false);
+    // Timer para mostrar botão de escape se a inicialização travar
+    const retryTimer = setTimeout(() => {
+      if (loading && mounted) {
+        log("Inicialização lenta detectada. Ativando botão de escape.", "warn");
+        setShowRetry(true);
       }
-    }, 4000);
+    }, 5000);
 
-    const checkUrlForRecovery = () => {
-      const href = window.location.href;
-      if (href.includes('type=recovery') || href.includes('access_token=')) {
-        log("Token de recuperação detectado. Forçando tela de senha.", "warn");
-        setForcePasswordUpdate(true);
-      }
-    };
-    checkUrlForRecovery();
-
-    const initAuth = async () => {
+    const init = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (session && mounted) {
-          log(`Sessão ativa para: ${session.user.email}`);
-          const profile = await getCurrentProfile();
-          if (profile) setUser(profile);
+        // 1. Verificar se há um token de recuperação na URL ANTES de carregar a sessão
+        const href = window.location.href;
+        if (href.includes('type=recovery') || href.includes('access_token=')) {
+          log("Fluxo de recuperação identificado pela URL.", "warn");
+          setForcePasswordUpdate(true);
         }
-      } catch (error: any) {
-        log(`Erro na inicialização: ${error.message}`, "error");
+
+        // 2. Tentar pegar sessão atual
+        log("Solicitando sessão ao Supabase...");
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          log(`Erro na sessão: ${error.message}`, "error");
+        }
+
+        if (session && mounted) {
+          log(`Usuário autenticado: ${session.user.email}`);
+          await loadProfile();
+        }
+      } catch (err: any) {
+        log(`Falha crítica no init: ${err.message}`, "error");
       } finally {
         if (mounted) {
           setLoading(false);
-          clearTimeout(safetyTimeout);
+          clearTimeout(retryTimer);
         }
       }
     };
 
-    initAuth();
+    init();
 
+    // 3. Listener Global de Auth (Única Instância)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       log(`Evento Auth: ${event}`);
       
@@ -85,19 +89,15 @@ const AppContent: React.FC = () => {
         setForcePasswordUpdate(true);
       }
 
-      if (event === 'USER_UPDATED' && session && forcePasswordUpdate) {
-        log("Detectado USER_UPDATED durante fluxo de recuperação. Finalizando forçadamente.", "warn");
-        // Se o evento disparou, a senha mudou. Podemos liberar o usuário.
-        setForcePasswordUpdate(false);
-        const profile = await getCurrentProfile();
-        if (profile) setUser(profile);
-      }
-
-      if (event === 'SIGNED_IN' && session) {
-        const profile = await getCurrentProfile();
-        if (mounted && profile) setUser(profile);
-      } else if (event === 'SIGNED_OUT') {
-        if (mounted) {
+      if (session) {
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+          await loadProfile();
+          if (event === 'USER_UPDATED' && forcePasswordUpdate) {
+            setForcePasswordUpdate(false);
+          }
+        }
+      } else {
+        if (event === 'SIGNED_OUT') {
           setUser(null);
           setForcePasswordUpdate(false);
         }
@@ -107,11 +107,12 @@ const AppContent: React.FC = () => {
     return () => {
       mounted = false;
       subscription.unsubscribe();
-      clearTimeout(safetyTimeout);
+      clearTimeout(retryTimer);
     };
-  }, [forcePasswordUpdate]);
+  }, [loadProfile, log]);
 
   const handleLogout = async () => {
+    log("Ação: Saindo do sistema...");
     await signOut();
     setUser(null);
     setForcePasswordUpdate(false);
@@ -119,8 +120,18 @@ const AppContent: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-10 text-center">
+        <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-8"></div>
+        <p className="text-zinc-500 text-xs font-black uppercase tracking-[0.3em] animate-pulse">Sincronizando Arena...</p>
+        
+        {showRetry && (
+          <button 
+            onClick={() => setLoading(false)}
+            className="mt-10 px-6 py-3 bg-zinc-900 border border-white/10 rounded-xl text-zinc-400 text-[10px] font-black uppercase tracking-widest hover:text-white transition-all"
+          >
+            Entrar Manualmente
+          </button>
+        )}
       </div>
     );
   }

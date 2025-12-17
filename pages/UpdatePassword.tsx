@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
-import { Lock, BadgeCheck } from '../components/ui/Icons';
+import { Lock, BadgeCheck, AlertTriangle } from '../components/ui/Icons';
 import { useToast } from '../context/ToastContext';
 import { useDebug } from '../context/DebugContext';
 
@@ -13,63 +13,79 @@ interface Props {
 export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sessionValid, setSessionValid] = useState<boolean | null>(null);
   const { addToast } = useToast();
   const { log } = useDebug();
   const navigate = useNavigate();
 
   useEffect(() => {
-    log("UpdatePassword Montado. Verificando sessão...");
+    log("UpdatePassword: Verificando validade da sessão para troca...");
     
-    // Pequena pausa para garantir que o SDK leu o hash antes de limparmos
-    const timer = setTimeout(() => {
-      if (window.location.hash.includes('access_token')) {
-        log("Limpando hash da URL para estabilizar SDK...");
-        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        log(`Sessão confirmada para: ${session.user.email}. Pronto para atualizar.`);
+        setSessionValid(true);
+      } else {
+        log("ERRO: Nenhuma sessão ativa para trocar a senha. O token pode ter expirado.", "error");
+        setSessionValid(false);
       }
-    }, 1000);
+    };
 
-    return () => clearTimeout(timer);
+    checkSession();
   }, []);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!sessionValid) {
+      log("Tentativa de update sem sessão válida abortada.", "error");
+      addToast("Sessão inválida ou expirada. Tente recuperar a senha novamente.", "error");
+      return;
+    }
+
     if (password.length < 6) {
       addToast("A senha deve ter no mínimo 6 caracteres.", "error");
       return;
     }
 
     setLoading(true);
-    log("Chamando updateUser...");
+    log("Iniciando requisição supabase.auth.updateUser...");
 
-    // Se em 8 segundos não responder, mas o evento global disparar, o App.tsx cuidará da saída.
-    // Aqui apenas garantimos que o botão não fique travado para sempre se algo falhar silenciosamente.
-    const failSafe = setTimeout(() => {
+    const apiTimeout = setTimeout(() => {
       if (loading) {
-        log("Failsafe atingido no formulário. Verificando estado global...", "warn");
-        setLoading(false);
+        log("ALERTA: A API de atualização de senha está demorando mais de 10s...", "warn");
       }
-    }, 8000);
+    }, 10000);
 
     try {
-      const { error } = await supabase.auth.updateUser({
+      const { data, error } = await supabase.auth.updateUser({
         password: password
       });
 
-      clearTimeout(failSafe);
+      clearTimeout(apiTimeout);
 
       if (error) {
-        log(`Erro no update: ${error.message}`, "error");
+        log(`Erro retornado pelo servidor: ${error.message}`, "error");
         addToast(error.message, "error");
         setLoading(false);
-      } else {
-        log("Sucesso retornado pela API de Update.");
-        addToast("Senha atualizada com sucesso!", "success");
-        if (onComplete) onComplete();
-        navigate('/', { replace: true });
+        return;
       }
+
+      log("Sucesso absoluto: Senha alterada no servidor!");
+      addToast("Senha alterada com sucesso! Acesso liberado.", "success");
+      
+      // Limpa hash residual
+      if (window.history.replaceState) {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+
+      if (onComplete) onComplete();
+      navigate('/', { replace: true });
       
     } catch (error: any) {
-      log(`Exceção no formulário: ${error.message}`, "error");
+      log(`Exceção capturada no formulário: ${error.message}`, "error");
+      addToast("Erro inesperado. Verifique sua internet.", "error");
       setLoading(false);
     }
   };
@@ -80,12 +96,21 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
       
       <div className="relative z-10 w-full max-w-sm">
         <div className="text-center mb-10">
-          <div className="w-20 h-20 bg-primary-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-primary-500/20">
+          <div className="w-20 h-20 bg-primary-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-primary-500/20 shadow-[0_0_30px_rgba(132,204,22,0.2)]">
             <Lock size={40} className="text-primary-500" />
           </div>
-          <h1 className="text-4xl font-black text-white italic tracking-tighter uppercase mb-2">Arena Segura</h1>
-          <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest text-center">Crie sua nova senha de acesso</p>
+          <h1 className="text-4xl font-black text-white italic tracking-tighter uppercase mb-2">Redefinir</h1>
+          <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest text-center">Digite sua nova credencial abaixo</p>
         </div>
+
+        {sessionValid === false && (
+          <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl mb-6 flex items-start gap-3">
+            <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={18} />
+            <p className="text-red-400 text-[10px] font-bold uppercase leading-relaxed">
+              Link expirado ou inválido. Por favor, volte ao login e solicite um novo e-mail de recuperação.
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleUpdate} className="space-y-4">
           <div className="bg-zinc-900/60 backdrop-blur-md border border-white/5 p-6 rounded-3xl shadow-xl space-y-4">
@@ -97,18 +122,19 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
                     type="password" 
                     placeholder="Mínimo 6 caracteres" 
                     required
+                    disabled={sessionValid === false}
                     minLength={6}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    className="w-full bg-black/60 border border-zinc-800 text-white pl-12 pr-4 py-3.5 rounded-xl focus:border-primary-500 focus:outline-none transition-all font-medium"
+                    className="w-full bg-black/60 border border-zinc-800 text-white pl-12 pr-4 py-3.5 rounded-xl focus:border-primary-500 focus:outline-none transition-all font-medium disabled:opacity-50"
                   />
                </div>
             </div>
 
             <button 
               type="submit" 
-              disabled={loading}
-              className="w-full bg-primary-500 hover:bg-primary-400 text-black font-black text-sm uppercase tracking-wider py-4 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
+              disabled={loading || sessionValid === false}
+              className="w-full bg-primary-500 hover:bg-primary-400 text-black font-black text-sm uppercase tracking-wider py-4 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {loading ? (
                 <div className="flex items-center gap-2">
@@ -118,7 +144,7 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
               ) : (
                 <>
                   <BadgeCheck size={18} />
-                  Confirmar Alteração
+                  Salvar Nova Senha
                 </>
               )}
             </button>
@@ -128,7 +154,7 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
               onClick={() => navigate('/')}
               className="w-full text-zinc-600 text-[10px] font-black uppercase tracking-widest hover:text-zinc-400 py-2"
             >
-              Voltar ao Login
+              Cancelar e Voltar
             </button>
           </div>
         </form>

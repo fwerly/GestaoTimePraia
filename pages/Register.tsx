@@ -27,7 +27,7 @@ export const Register: React.FC = () => {
     try {
       const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=84cc16&color=000&bold=true`;
 
-      log(`Tentando registrar: ${email}`);
+      log(`Registrando: ${email}`);
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -42,9 +42,8 @@ export const Register: React.FC = () => {
       });
 
       if (authError && (authError.message.includes('already registered') || authError.status === 422)) {
-        log("E-mail já cadastrado identificado.", "warn");
         setEmailExists(true);
-        addToast("E-mail já cadastrado no nosso sistema.", "error");
+        addToast("E-mail já cadastrado.", "error");
         setLoading(false);
         return;
       }
@@ -52,13 +51,11 @@ export const Register: React.FC = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        log("Registro bem sucedido!");
-        addToast("Bem-vindo ao time! Cadastro realizado.", "success");
+        addToast("Conta criada! Redirecionando...", "success");
         navigate('/');
       }
     } catch (error: any) {
-      log(`Erro no registro: ${error.message}`, "error");
-      addToast(error.message || "Não conseguimos criar sua conta.", "error");
+      addToast(error.message || "Erro no cadastro.", "error");
     } finally {
       setLoading(false);
     }
@@ -66,22 +63,19 @@ export const Register: React.FC = () => {
 
   const handleSendResetLink = async () => {
     setLoading(true);
-    log(`Enviando link de recuperação para: ${email}`);
     try {
-      // IMPORTANTE: Removemos o /#/ do final para evitar o erro de dupla hash
+      // Usamos apenas o origin para o redirecionamento
       const redirectTo = window.location.origin;
-      log(`Redirect URL: ${redirectTo}`);
+      log(`Recuperação enviada para ${email} com redirect ${redirectTo}`);
       
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectTo,
       });
       if (error) throw error;
       setResetSent(true);
-      log("Link de recuperação enviado com sucesso!");
-      addToast("Link de recuperação enviado para seu e-mail!", "success");
+      addToast("E-mail de recuperação enviado!", "success");
     } catch (error: any) {
-      log(`Erro ao enviar link: ${error.message}`, "error");
-      addToast("Erro ao enviar link. Tente novamente mais tarde.", "error");
+      addToast("Erro ao enviar link.", "error");
     } finally {
       setLoading(false);
     }
@@ -94,7 +88,7 @@ export const Register: React.FC = () => {
       <div className="w-full max-w-sm relative z-10">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-black text-white mb-2 italic tracking-tighter uppercase">Novo Atleta</h1>
-          <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest">Entre para a arena agora</p>
+          <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest">Complete seu alistamento</p>
         </div>
 
         {emailExists ? (
@@ -104,9 +98,7 @@ export const Register: React.FC = () => {
                 <AlertTriangle size={32} />
               </div>
               <h2 className="text-white font-black italic uppercase text-lg">E-mail já Cadastrado</h2>
-              <p className="text-zinc-400 text-sm mt-2">
-                Parece que você já faz parte do time. Esqueceu sua senha?
-              </p>
+              <p className="text-zinc-400 text-sm mt-2">Você já faz parte do time. Recuperar senha?</p>
             </div>
 
             {!resetSent ? (
@@ -115,18 +107,18 @@ export const Register: React.FC = () => {
                 disabled={loading}
                 className="w-full bg-white text-black font-black text-sm uppercase tracking-wider py-4 rounded-xl shadow-lg"
               >
-                {loading ? 'Enviando...' : 'Sim, enviar link por e-mail'}
+                {loading ? 'Enviando...' : 'Enviar Link de Senha'}
               </button>
             ) : (
               <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-xl flex items-center gap-3">
                 <BadgeCheck className="text-green-500 shrink-0" size={20} />
-                <p className="text-green-400 text-xs font-bold uppercase">Verifique sua caixa de entrada!</p>
+                <p className="text-green-400 text-xs font-bold uppercase">Verifique seu e-mail!</p>
               </div>
             )}
 
             <button 
               onClick={() => setEmailExists(false)}
-              className="w-full text-zinc-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
+              className="w-full text-zinc-500 text-[10px] font-black uppercase tracking-widest hover:text-white"
             >
               Tentar outro e-mail
             </button>
@@ -137,11 +129,8 @@ export const Register: React.FC = () => {
               <div className="relative group">
                 <User className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-primary-500" size={18} />
                 <input 
-                  type="text" 
-                  placeholder="Nome Completo" 
-                  required
-                  value={fullName}
-                  onChange={e => setFullName(e.target.value)}
+                  type="text" placeholder="Nome Completo" required
+                  value={fullName} onChange={e => setFullName(e.target.value)}
                   className="w-full bg-black/60 border border-zinc-800 text-white pl-11 pr-4 py-3 rounded-xl focus:border-primary-500 focus:outline-none text-sm"
                 />
               </div>
@@ -149,12 +138,8 @@ export const Register: React.FC = () => {
               <div className="relative group">
                 <Mail className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-primary-500" size={18} />
                 <input 
-                  type="email" 
-                  placeholder="E-mail" 
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  type="email" placeholder="E-mail" required
+                  value={email} onChange={e => setEmail(e.target.value)}
                   className="w-full bg-black/60 border border-zinc-800 text-white pl-11 pr-4 py-3 rounded-xl focus:border-primary-500 focus:outline-none text-sm"
                 />
               </div>
@@ -162,11 +147,8 @@ export const Register: React.FC = () => {
               <div className="relative group">
                 <Phone className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-primary-500" size={18} />
                 <input 
-                  type="tel" 
-                  placeholder="WhatsApp" 
-                  required
-                  value={whatsapp}
-                  onChange={e => setWhatsapp(e.target.value)}
+                  type="tel" placeholder="WhatsApp" required
+                  value={whatsapp} onChange={e => setWhatsapp(e.target.value)}
                   className="w-full bg-black/60 border border-zinc-800 text-white pl-11 pr-4 py-3 rounded-xl focus:border-primary-500 focus:outline-none text-sm"
                 />
               </div>
@@ -174,33 +156,27 @@ export const Register: React.FC = () => {
               <div className="relative group">
                   <Lock className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-primary-500" size={18} />
                   <input 
-                    type="password" 
-                    placeholder="Senha (mín. 6 caracteres)" 
-                    required
-                    minLength={6}
-                    autoComplete="new-password"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
+                    type="password" placeholder="Senha (mín. 6)" required minLength={6}
+                    value={password} onChange={e => setPassword(e.target.value)}
                     className="w-full bg-black/60 border border-zinc-800 text-white pl-11 pr-4 py-3 rounded-xl focus:border-primary-500 focus:outline-none text-sm"
                   />
               </div>
             </div>
 
             <button 
-              type="submit" 
-              disabled={loading}
+              type="submit" disabled={loading}
               className="w-full bg-primary-500 hover:bg-primary-400 text-black font-black text-sm uppercase tracking-wider py-4 rounded-xl shadow-lg mt-4"
             >
-              {loading ? 'Validando Entrada...' : 'Entrar na Arena'}
+              {loading ? 'Processando...' : 'Confirmar Cadastro'}
             </button>
           </form>
         )}
 
         <div className="mt-8 text-center bg-zinc-900/40 p-4 rounded-2xl border border-white/5">
           <p className="text-zinc-500 text-xs uppercase font-bold tracking-wider">
-            Já possui acesso? 
+            Já é do time? 
             <Link to="/" className="block mt-2 text-primary-500 hover:text-white text-sm font-black underline decoration-primary-500/30 underline-offset-4">
-              IR PARA LOGIN
+              LOGIN
             </Link>
           </p>
         </div>
