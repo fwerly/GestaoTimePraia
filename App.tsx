@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './utils/supabaseClient';
@@ -5,6 +6,7 @@ import { getCurrentProfile, signOut } from './services/authService';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
+import { UpdatePassword } from './pages/UpdatePassword';
 import { StudentDashboard } from './pages/StudentDashboard';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { StudentFinance } from './pages/StudentFinance';
@@ -16,24 +18,35 @@ import { ToastProvider } from './context/ToastContext';
 const App: React.FC = () => {
   const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRecovering, setIsRecovering] = useState(false);
 
   useEffect(() => {
     let mounted = true;
 
-    // Função segura para checar sessão
+    // Detectar recuperação de senha de forma robusta
+    // Lida com links como: domain.com/#/#access_token=... ou domain.com/#access_token=...
+    const checkRecoveryFlow = () => {
+      const fullUrl = window.location.href;
+      if (fullUrl.includes('type=recovery') || fullUrl.includes('access_token=')) {
+        console.log("Fluxo de recuperação detectado na URL");
+        setIsRecovering(true);
+      }
+    };
+
+    checkRecoveryFlow();
+
     const checkSession = async () => {
       try {
-        // Timeout de segurança: Se o Supabase demorar mais de 5s, libera o app
-        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 5000));
-        const sessionPromise = getCurrentProfile();
-
-        const result = await Promise.race([sessionPromise, timeoutPromise]);
+        const { data: { session } } = await supabase.auth.getSession();
         
-        if (mounted && result && (result as Profile).id) {
-          setUser(result as Profile);
+        if (session && mounted) {
+          const profile = await getCurrentProfile();
+          if (profile) {
+            setUser(profile);
+          }
         }
       } catch (error) {
-        console.error("Falha ao verificar sessão inicial:", error);
+        console.error("Erro ao verificar sessão:", error);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -41,14 +54,26 @@ const App: React.FC = () => {
 
     checkSession();
 
-    // Listen for auth changes
+    // Listener para mudanças de estado de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        // Ao fazer login explícito, não precisamos de timeout, o usuário espera
+      console.log("Auth Event:", event);
+      
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecovering(true);
+      }
+      
+      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session) {
         const profile = await getCurrentProfile();
-        if (mounted) setUser(profile);
+        if (mounted && profile) {
+          setUser(profile);
+          // Só desativa recuperação se não for apenas o login inicial do token
+          if (event === 'USER_UPDATED') setIsRecovering(false);
+        }
       } else if (event === 'SIGNED_OUT') {
-        if (mounted) setUser(null);
+        if (mounted) {
+          setUser(null);
+          setIsRecovering(false);
+        }
       }
     });
 
@@ -64,7 +89,6 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     if (user?.id.startsWith('admin-') || user?.id.startsWith('user-')) {
-       // Mock logout for admin and user bypass
        setUser(null);
     } else {
        await signOut();
@@ -77,9 +101,23 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest animate-pulse">Carregando...</p>
+          <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest animate-pulse">Iniciando Arena...</p>
         </div>
       </div>
+    );
+  }
+
+  // PRIORIDADE MÁXIMA: Se detectamos tokens de recuperação, mostramos a tela de UpdatePassword
+  // Mesmo que o Supabase ainda não tenha processado o evento PASSWORD_RECOVERY formalmente
+  if (isRecovering && !user) {
+    return (
+      <ToastProvider>
+        <HashRouter>
+           <Routes>
+              <Route path="*" element={<UpdatePassword />} />
+           </Routes>
+        </HashRouter>
+      </ToastProvider>
     );
   }
 
@@ -96,6 +134,11 @@ const App: React.FC = () => {
             <Route 
               path="/register" 
               element={!user ? <Register /> : <Navigate to="/" />} 
+            />
+
+            <Route 
+              path="/reset-password" 
+              element={<UpdatePassword />} 
             />
             
             <Route 
