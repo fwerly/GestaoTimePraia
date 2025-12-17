@@ -23,10 +23,9 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
 
   useEffect(() => {
     const activateSessionManually = async () => {
-      log("UpdatePassword: Iniciando extração manual de tokens...");
+      log("UpdatePassword: Verificando tokens de acesso...");
       
       try {
-        // 1. Tentar extrair tokens manualmente da URL (independente do HashRouter)
         const fullUrl = window.location.href;
         const hashPart = fullUrl.split('#').pop() || '';
         const searchParams = new URLSearchParams(hashPart.includes('?') ? hashPart.split('?')[1] : hashPart);
@@ -35,7 +34,7 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
         const refreshToken = searchParams.get('refresh_token');
 
         if (accessToken && refreshToken) {
-          log("Tokens encontrados! Forçando ativação de sessão...");
+          log("Tokens extraídos. Sincronizando sessão...");
           const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken
@@ -43,35 +42,39 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
 
           if (error) throw error;
           if (data.session) {
-            log(`Sessão ativada manualmente para: ${data.session.user.email}`);
+            log(`Sessão validada para: ${data.session.user.email}`);
+            
+            // Limpa o hash da URL para evitar loops de detecção
+            if (window.history && window.history.replaceState) {
+              window.history.replaceState(null, "", window.location.pathname + window.location.search);
+              log("Hash da URL limpo com sucesso.");
+            }
+
             setSessionValid(true);
             setValidating(false);
             return;
           }
-        } else {
-          log("Nenhum token manual encontrado no fragmento da URL.");
         }
 
-        // 2. Fallback: Verificar se o SDK já resolveu a sessão sozinho
+        // Fallback para sessão já persistida
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          log("Sessão já estava ativa no SDK.");
+          log("Sessão persistente detectada.");
           setSessionValid(true);
           setValidating(false);
         } else {
-          // Se não resolveu, dar mais uma chance (polling curto)
-          if (attemptCount.current < 3) {
+          if (attemptCount.current < 4) {
             attemptCount.current++;
-            log(`Tentativa ${attemptCount.current}: Aguardando SDK...`);
-            setTimeout(activateSessionManually, 1000);
+            log(`Aguardando propagação de sessão (tentativa ${attemptCount.current})...`);
+            setTimeout(activateSessionManually, 1200);
           } else {
-            log("Falha final: Token não pôde ser validado.", "error");
+            log("Erro: Sessão de recuperação não identificada.", "error");
             setSessionValid(false);
             setValidating(false);
           }
         }
       } catch (err: any) {
-        log(`Erro na ativação manual: ${err.message}`, "error");
+        log(`Erro de validação: ${err.message}`, "error");
         setSessionValid(false);
         setValidating(false);
       }
@@ -84,39 +87,42 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
     e.preventDefault();
     
     if (!sessionValid) {
-      addToast("Sessão inválida. Peça um novo link.", "error");
+      addToast("Sessão inválida. Solicite novo link.", "error");
       return;
     }
 
     if (password.length < 6) {
-      addToast("Mínimo de 6 caracteres.", "error");
+      addToast("A senha precisa de 6+ caracteres.", "error");
       return;
     }
 
     setLoading(true);
-    log("Atualizando senha...");
+    log("Iniciando atualização de credenciais...");
 
     try {
+      // Pequeno delay para garantir que o setSession anterior foi processado pelo backend
+      await new Promise(r => setTimeout(r, 500));
+
       const { error } = await supabase.auth.updateUser({
         password: password
       });
 
       if (error) {
-        log(`Erro no update: ${error.message}`, "error");
+        log(`Erro Supabase: ${error.message}`, "error");
         addToast(error.message, "error");
         setLoading(false);
         return;
       }
 
-      log("Sucesso! Senha alterada.");
-      addToast("Senha alterada com sucesso!", "success");
+      log("Sucesso: Senha atualizada!");
+      addToast("Senha salva! Bem-vindo de volta.", "success");
       
       if (onComplete) onComplete();
       navigate('/', { replace: true });
       
     } catch (error: any) {
       log(`Erro inesperado: ${error.message}`, "error");
-      addToast("Erro ao salvar senha.", "error");
+      addToast("Falha ao salvar senha.", "error");
       setLoading(false);
     }
   };
@@ -127,49 +133,50 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
       
       <div className="relative z-10 w-full max-w-sm">
         <div className="mb-8">
-          <div className="w-20 h-20 bg-primary-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-primary-500/20">
+          <div className="w-20 h-20 bg-primary-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-primary-500/20 shadow-2xl">
             {validating ? (
               <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
             ) : (
               <Lock size={32} className={sessionValid ? "text-primary-500" : "text-red-500"} />
             )}
           </div>
-          <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">Nova Senha</h1>
-          <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Acesso Seguro</p>
+          <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">Segurança</h1>
+          <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Defina sua nova senha</p>
         </div>
 
         {validating ? (
-          <div className="bg-zinc-900/50 backdrop-blur-md p-8 rounded-3xl border border-white/5">
-             <p className="text-zinc-400 text-sm font-medium animate-pulse">Ativando link de segurança...</p>
+          <div className="bg-zinc-900/50 backdrop-blur-md p-8 rounded-3xl border border-white/5 shadow-2xl">
+             <p className="text-zinc-400 text-sm font-medium animate-pulse italic">Autenticando link...</p>
           </div>
         ) : sessionValid === false ? (
-          <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-3xl space-y-4 shadow-2xl">
-            <ShieldAlert size={40} className="mx-auto text-red-500" />
-            <p className="text-red-400 text-xs font-bold uppercase tracking-wider">
-              Link expirado ou corrompido.<br/>Tente gerar um novo acesso.
+          <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-3xl space-y-5 shadow-2xl">
+            <ShieldAlert size={48} className="mx-auto text-red-500" />
+            <p className="text-red-400 text-sm font-bold uppercase tracking-tight leading-snug">
+              Link de acesso inválido ou já utilizado.
             </p>
             <button 
               onClick={() => navigate('/')}
-              className="w-full bg-white/10 text-white font-black text-[10px] uppercase py-3 rounded-xl border border-white/10"
+              className="w-full bg-white/10 text-white font-black text-xs uppercase py-4 rounded-xl border border-white/10 hover:bg-white/20 transition-colors"
             >
-              Voltar ao Início
+              Voltar ao Login
             </button>
           </div>
         ) : (
-          <form onSubmit={handleUpdate} className="space-y-4 text-left animate-in fade-in slide-in-from-bottom-4">
-            <div className="bg-zinc-900/60 backdrop-blur-md border border-white/5 p-6 rounded-3xl shadow-xl space-y-4">
+          <form onSubmit={handleUpdate} className="space-y-4 text-left animate-in fade-in slide-in-from-bottom-6 duration-700">
+            <div className="bg-zinc-900/60 backdrop-blur-md border border-white/5 p-6 rounded-3xl shadow-2xl space-y-4">
               <div className="space-y-1">
-                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Nova Senha</label>
+                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Senha de Acesso</label>
                  <div className="relative group">
                     <Lock className="absolute left-4 top-3.5 text-zinc-500" size={20} />
                     <input 
                       type="password" 
-                      placeholder="Mínimo 6 caracteres" 
+                      placeholder="Mínimo 6 dígitos" 
                       required
                       minLength={6}
+                      autoFocus
                       value={password}
                       onChange={e => setPassword(e.target.value)}
-                      className="w-full bg-black/60 border border-zinc-800 text-white pl-12 pr-4 py-3.5 rounded-xl focus:border-primary-500 focus:outline-none"
+                      className="w-full bg-black/60 border border-zinc-800 text-white pl-12 pr-4 py-3.5 rounded-xl focus:border-primary-500 focus:outline-none transition-all"
                     />
                  </div>
               </div>
@@ -177,12 +184,17 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
               <button 
                 type="submit" 
                 disabled={loading}
-                className="w-full bg-primary-500 hover:bg-primary-400 text-black font-black text-sm uppercase tracking-wider py-4 rounded-xl shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                className="w-full bg-primary-500 hover:bg-primary-400 text-black font-black text-sm uppercase tracking-wider py-4 rounded-xl shadow-lg active:scale-95 flex items-center justify-center gap-2 transition-all"
               >
-                {loading ? 'Processando...' : (
+                {loading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                    Salvando...
+                  </div>
+                ) : (
                   <>
                     <BadgeCheck size={18} />
-                    Salvar Senha
+                    Confirmar Senha
                   </>
                 )}
               </button>
