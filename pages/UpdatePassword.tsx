@@ -19,110 +19,106 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
   const { addToast } = useToast();
   const { log } = useDebug();
   const navigate = useNavigate();
-  const attemptCount = useRef(0);
+  const checkInterval = useRef<any>(null);
 
   useEffect(() => {
-    const activateSessionManually = async () => {
-      log("UpdatePassword: Verificando tokens de acesso...");
+    const performAuth = async () => {
+      log("UpdatePassword: Iniciando validação de segurança...");
       
       try {
-        const fullUrl = window.location.href;
-        const hashPart = fullUrl.split('#').pop() || '';
-        const searchParams = new URLSearchParams(hashPart.includes('?') ? hashPart.split('?')[1] : hashPart);
+        const url = window.location.href;
         
-        const accessToken = searchParams.get('access_token');
-        const refreshToken = searchParams.get('refresh_token');
+        // Extração via Regex (mais segura para URLs complexas com HashRouter)
+        const access_token = url.match(/[#&]access_token=([^&]*)/)?.[1];
+        const refresh_token = url.match(/[#&]refresh_token=([^&]*)/)?.[1];
 
-        if (accessToken && refreshToken) {
-          log("Tokens extraídos. Sincronizando sessão...");
-          const { data, error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken
+        if (access_token && refresh_token) {
+          log("Tokens detectados na URL. Sincronizando com Supabase...");
+          
+          // Tentamos setar a sessão. Não bloqueamos caso o retorno demore.
+          supabase.auth.setSession({ access_token, refresh_token }).catch(e => {
+            log(`Erro ao setar sessão: ${e.message}`, "error");
           });
+        }
 
-          if (error) throw error;
-          if (data.session) {
-            log(`Sessão validada para: ${data.session.user.email}`);
-            
-            // Limpa o hash da URL para evitar loops de detecção
-            if (window.history && window.history.replaceState) {
-              window.history.replaceState(null, "", window.location.pathname + window.location.search);
-              log("Hash da URL limpo com sucesso.");
-            }
+        // Aguardamos um pouco para que o SDK processe os tokens
+        let attempts = 0;
+        const maxAttempts = 5;
 
+        const checkSession = async () => {
+          attempts++;
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (session) {
+            log(`Sessão confirmada para: ${session.user.email}`);
             setSessionValid(true);
             setValidating(false);
-            return;
-          }
-        }
-
-        // Fallback para sessão já persistida
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          log("Sessão persistente detectada.");
-          setSessionValid(true);
-          setValidating(false);
-        } else {
-          if (attemptCount.current < 4) {
-            attemptCount.current++;
-            log(`Aguardando propagação de sessão (tentativa ${attemptCount.current})...`);
-            setTimeout(activateSessionManually, 1200);
-          } else {
-            log("Erro: Sessão de recuperação não identificada.", "error");
+            if (checkInterval.current) clearInterval(checkInterval.current);
+          } else if (attempts >= maxAttempts) {
+            log("Falha: Sessão não pôde ser validada após várias tentativas.", "error");
             setSessionValid(false);
             setValidating(false);
+            if (checkInterval.current) clearInterval(checkInterval.current);
+          } else {
+            log(`Tentativa ${attempts}: Aguardando sessão...`);
           }
+        };
+
+        // Inicia checagem imediata e depois via intervalo
+        await checkSession();
+        if (validating) {
+           checkInterval.current = setInterval(checkSession, 1000);
         }
+
       } catch (err: any) {
-        log(`Erro de validação: ${err.message}`, "error");
+        log(`Erro crítico de validação: ${err.message}`, "error");
         setSessionValid(false);
         setValidating(false);
       }
     };
 
-    activateSessionManually();
+    performAuth();
+
+    return () => {
+      if (checkInterval.current) clearInterval(checkInterval.current);
+    };
   }, [log]);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!sessionValid) {
-      addToast("Sessão inválida. Solicite novo link.", "error");
-      return;
-    }
-
     if (password.length < 6) {
       addToast("A senha precisa de 6+ caracteres.", "error");
       return;
     }
 
     setLoading(true);
-    log("Iniciando atualização de credenciais...");
+    log("Salvando nova senha...");
 
     try {
-      // Pequeno delay para garantir que o setSession anterior foi processado pelo backend
-      await new Promise(r => setTimeout(r, 500));
-
       const { error } = await supabase.auth.updateUser({
         password: password
       });
 
       if (error) {
-        log(`Erro Supabase: ${error.message}`, "error");
+        log(`Erro no Supabase: ${error.message}`, "error");
         addToast(error.message, "error");
         setLoading(false);
         return;
       }
 
-      log("Sucesso: Senha atualizada!");
-      addToast("Senha salva! Bem-vindo de volta.", "success");
+      log("Sucesso: Senha redefinida!");
+      addToast("Senha alterada! Entre com suas novas credenciais.", "success");
+      
+      // Limpa sessão para forçar novo login com a senha nova e garantir estado limpo
+      await supabase.auth.signOut();
       
       if (onComplete) onComplete();
       navigate('/', { replace: true });
       
     } catch (error: any) {
       log(`Erro inesperado: ${error.message}`, "error");
-      addToast("Falha ao salvar senha.", "error");
+      addToast("Erro ao processar alteração.", "error");
       setLoading(false);
     }
   };
@@ -140,37 +136,38 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
               <Lock size={32} className={sessionValid ? "text-primary-500" : "text-red-500"} />
             )}
           </div>
-          <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">Segurança</h1>
-          <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Defina sua nova senha</p>
+          <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">Acesso</h1>
+          <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Recuperação de Conta</p>
         </div>
 
         {validating ? (
           <div className="bg-zinc-900/50 backdrop-blur-md p-8 rounded-3xl border border-white/5 shadow-2xl">
-             <p className="text-zinc-400 text-sm font-medium animate-pulse italic">Autenticando link...</p>
+             <p className="text-zinc-400 text-sm font-medium animate-pulse italic">Validando credenciais...</p>
+             <p className="text-[10px] text-zinc-600 mt-2 font-bold uppercase tracking-tighter">Isto pode levar alguns segundos</p>
           </div>
         ) : sessionValid === false ? (
           <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-3xl space-y-5 shadow-2xl">
             <ShieldAlert size={48} className="mx-auto text-red-500" />
             <p className="text-red-400 text-sm font-bold uppercase tracking-tight leading-snug">
-              Link de acesso inválido ou já utilizado.
+              Link inválido ou expirado.
             </p>
             <button 
               onClick={() => navigate('/')}
               className="w-full bg-white/10 text-white font-black text-xs uppercase py-4 rounded-xl border border-white/10 hover:bg-white/20 transition-colors"
             >
-              Voltar ao Login
+              Voltar ao Início
             </button>
           </div>
         ) : (
           <form onSubmit={handleUpdate} className="space-y-4 text-left animate-in fade-in slide-in-from-bottom-6 duration-700">
             <div className="bg-zinc-900/60 backdrop-blur-md border border-white/5 p-6 rounded-3xl shadow-2xl space-y-4">
               <div className="space-y-1">
-                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Senha de Acesso</label>
+                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Crie sua nova Senha</label>
                  <div className="relative group">
                     <Lock className="absolute left-4 top-3.5 text-zinc-500" size={20} />
                     <input 
                       type="password" 
-                      placeholder="Mínimo 6 dígitos" 
+                      placeholder="Mínimo 6 caracteres" 
                       required
                       minLength={6}
                       autoFocus
@@ -186,15 +183,10 @@ export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
                 disabled={loading}
                 className="w-full bg-primary-500 hover:bg-primary-400 text-black font-black text-sm uppercase tracking-wider py-4 rounded-xl shadow-lg active:scale-95 flex items-center justify-center gap-2 transition-all"
               >
-                {loading ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-                    Salvando...
-                  </div>
-                ) : (
+                {loading ? 'Salvando...' : (
                   <>
                     <BadgeCheck size={18} />
-                    Confirmar Senha
+                    Atualizar Senha
                   </>
                 )}
               </button>
