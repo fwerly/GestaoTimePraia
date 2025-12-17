@@ -2,10 +2,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
-import { Lock, BadgeCheck } from '../components/ui/Icons';
+import { Lock, BadgeCheck, XCircle } from '../components/ui/Icons';
 import { useToast } from '../context/ToastContext';
 
-export const UpdatePassword: React.FC = () => {
+interface Props {
+  onComplete?: () => void;
+}
+
+export const UpdatePassword: React.FC<Props> = ({ onComplete }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { addToast } = useToast();
@@ -13,7 +17,13 @@ export const UpdatePassword: React.FC = () => {
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password.length < 6) {
+      addToast("A senha deve ter no mínimo 6 caracteres.", "error");
+      return;
+    }
+
     setLoading(true);
+    console.log("Iniciando atualização de senha...");
 
     try {
       const { error } = await supabase.auth.updateUser({
@@ -22,11 +32,19 @@ export const UpdatePassword: React.FC = () => {
 
       if (error) throw error;
 
-      addToast("Senha atualizada com sucesso! Acesso liberado.", "success");
-      // Após atualizar a senha o usuário já está logado
-      navigate('/');
+      addToast("Senha atualizada! Acesso liberado.", "success");
+      
+      // Limpa o hash da URL para evitar que o app pense que ainda está recuperando após o reload
+      if (window.history.replaceState) {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
+
+      if (onComplete) onComplete();
+      navigate('/', { replace: true });
+      
     } catch (error: any) {
-      addToast(error.message || "Erro ao atualizar senha.", "error");
+      console.error("Erro ao atualizar senha:", error);
+      addToast(error.message || "Não foi possível atualizar. Tente novamente.", "error");
     } finally {
       setLoading(false);
     }
@@ -35,6 +53,7 @@ export const UpdatePassword: React.FC = () => {
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-primary-900/40 via-transparent to-transparent opacity-60"></div>
+      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 pointer-events-none"></div>
       
       <div className="relative z-10 w-full max-w-sm">
         <div className="text-center mb-10">
@@ -66,19 +85,35 @@ export const UpdatePassword: React.FC = () => {
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full bg-primary-500 hover:bg-primary-400 text-black font-black text-sm uppercase tracking-wider py-4 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
+              className="w-full bg-primary-500 hover:bg-primary-400 text-black font-black text-sm uppercase tracking-wider py-4 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Atualizando...' : (
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                  Salvando...
+                </div>
+              ) : (
                 <>
                   <BadgeCheck size={18} />
                   Confirmar Nova Senha
                 </>
               )}
             </button>
+            
+            <button 
+              type="button"
+              onClick={() => {
+                if (onComplete) onComplete();
+                navigate('/');
+              }}
+              className="w-full text-zinc-600 text-[10px] font-black uppercase tracking-widest hover:text-zinc-400 transition-colors py-2"
+            >
+              Cancelar e voltar
+            </button>
           </div>
         </form>
 
-        <p className="text-center mt-8 text-zinc-600 text-[10px] uppercase font-black tracking-widest">
+        <p className="text-center mt-8 text-zinc-600 text-[10px] uppercase font-black tracking-widest opacity-40">
           Ambiente de Segurança GestaoTime
         </p>
       </div>

@@ -165,7 +165,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
 
         <div className="absolute bottom-6 flex flex-col items-center gap-1 opacity-40">
-           <span className="text-zinc-600 text-[10px] uppercase font-black tracking-[0.2em]">System v1.17.19</span>
+           <span className="text-zinc-600 text-[10px] uppercase font-black tracking-[0.2em]">System v1.17.20</span>
            <div className="w-8 h-0.5 bg-zinc-800 rounded-full"></div>
         </div>
       </div>
