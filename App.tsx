@@ -25,7 +25,7 @@ const AppContent: React.FC = () => {
           <div className="absolute inset-0 bg-primary-500 blur-[50px] opacity-10 animate-pulse"></div>
         </div>
         <p className="text-zinc-600 text-[10px] font-black uppercase tracking-[0.3em] animate-pulse italic">
-          Sincronizando v1.20.0
+          Sincronizando v1.21.0
         </p>
       </div>
     );

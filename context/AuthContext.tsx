@@ -44,7 +44,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [log]);
 
-  // Fix: Added implementation for refreshProfile required by AuthContextType interface
   const refreshProfile = useCallback(async () => {
     if (session?.user?.id) {
       log("Manual profile refresh triggered");
@@ -56,20 +55,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (mounted.current) return;
     mounted.current = true;
 
-    log("Auth Engine v1.20.0 - On Fire");
+    log("Auth Engine v1.21.0 - Inicializado");
 
-    // Detectar modo recuperação pela URL
     const checkHash = () => {
       const hash = window.location.hash;
       if (hash.includes('type=recovery') || hash.includes('type=signup') || hash.includes('access_token=')) {
-        log("Sinal de recuperação detectado na URL.");
+        log("Link de recuperação detectado.");
         setIsRecoveryMode(true);
       }
     };
 
     checkHash();
 
-    // Inicializar Sessão
     supabase.auth.getSession().then(({ data: { session: initSession } }) => {
       setSession(initSession);
       if (initSession) {
@@ -79,9 +76,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthReady(true);
     });
 
-    // Escutar Mudanças
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      log(`Evento Global: ${event}`);
+      log(`Evento Auth: ${event}`);
       setSession(newSession);
 
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
@@ -102,12 +98,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [log, loadProfile]);
 
   const signOut = async () => {
-    log("Limpando ambiente de segurança...");
+    log("Limpando sessão e modo de segurança...");
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setIsRecoveryMode(false);
-    window.location.hash = ''; // Limpa hash da URL no logout
+    // Remove hash da URL de forma limpa
+    window.history.replaceState(null, '', window.location.pathname);
   };
 
   return (
