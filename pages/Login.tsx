@@ -23,9 +23,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     e.preventDefault();
     setLoading(true);
 
-    log(`Tentativa de Login: ${email}`);
+    log(`Login: ${email}`);
 
-    // Bypasses para testes
+    // Bypass Admin para testes locais/emergência
     if (email === 'admin' && password === 'admin') {
       onLogin(MOCK_USER_ADMIN);
       addToast("Bem-vindo, Treinador!", "success");
@@ -48,18 +48,18 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           .eq('id', data.session.user.id)
           .maybeSingle();
         
-        if (pError) log(`Erro ao buscar perfil: ${pError.message}`, 'error');
+        if (pError) log(`Erro Perfil: ${pError.message}`, 'error');
 
         if (profile) {
           onLogin(profile as Profile);
           addToast(`Bora pro treino! 🚀`, "success");
         } else {
-          addToast("Conta ativa, mas perfil não encontrado.", "error");
+          addToast("Perfil não configurado.", "error");
         }
       }
     } catch (error: any) {
-      log(`Erro no login: ${error.message}`, 'error');
-      addToast(error.message || "Erro no acesso.", "error");
+      log(`Erro Auth: ${error.message}`, 'error');
+      addToast(error.message || "Acesso negado.", "error");
     } finally {
       setLoading(false);
     }
@@ -117,7 +117,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               disabled={loading}
               className="w-full bg-primary-500 hover:bg-primary-400 text-black font-black text-sm uppercase tracking-wider py-4 rounded-xl shadow-lg mt-4 transition-all active:scale-95"
             >
-              {loading ? 'Validando...' : 'Entrar na Arena'}
+              {loading ? 'Entrando...' : 'Entrar na Arena'}
             </button>
           </form>
         </div>
@@ -129,7 +129,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
 
         <div className="absolute bottom-6 opacity-40">
-           <span className="text-zinc-600 text-[10px] uppercase font-black tracking-[0.2em]">System v1.17.24</span>
+           <span className="text-zinc-600 text-[10px] uppercase font-black tracking-[0.2em]">System v1.17.25</span>
         </div>
       </div>
     </div>
