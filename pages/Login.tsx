@@ -47,7 +47,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-primary-900/30 via-transparent to-transparent opacity-60"></div>
       <div className="absolute -top-24 -left-24 w-96 h-96 bg-primary-500/10 rounded-full blur-[100px]"></div>
       
-      <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
+      <div className="relative z-10 w-full max-sm:px-2 max-w-sm flex flex-col items-center">
         <div className="mb-10 relative">
           <div className="absolute inset-0 bg-primary-500 blur-[50px] opacity-20 rounded-full animate-pulse"></div>
           <div className="w-24 h-24 bg-zinc-900 border border-zinc-800 rounded-[2.2rem] flex items-center justify-center relative rotate-3 shadow-2xl">
@@ -111,7 +111,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
 
         <div className="mt-16 opacity-30 group cursor-default">
-           <span className="text-zinc-600 text-[9px] uppercase font-black tracking-[0.4em] group-hover:text-primary-500 transition-colors">Engine Core v1.24.0</span>
+           <span className="text-zinc-600 text-[9px] uppercase font-black tracking-[0.4em] group-hover:text-primary-500 transition-colors">Engine Core v1.27.0</span>
         </div>
       </div>
     </div>

@@ -42,13 +42,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         log(`Perfil [${data.role}]: ${data.full_name}`);
       }
     } catch (err: any) {
-      log(`Erro de Perfil: ${err.message}`, 'error');
+      log(`Erro perfil: ${err.message}`, 'error');
     }
   }, [log]);
 
   const refreshProfile = useCallback(async () => {
     if (session?.user?.id) {
-      log("Manual profile refresh triggered");
+      log("Refresh manual v1.27.0");
       await loadProfile(session.user.id);
     }
   }, [session, loadProfile, log]);
@@ -57,12 +57,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (mounted.current) return;
     mounted.current = true;
 
-    log("Auth Engine v1.24.0 - Online");
+    log("Auth Engine v1.27.0 - Hard Security Mode");
 
     const checkHash = () => {
       const hash = window.location.hash;
       if (hash.includes('type=recovery') || hash.includes('type=signup') || hash.includes('access_token=')) {
-        log("Sinal de recuperação na URL.");
+        log("Contexto de recuperação ativo.");
         setIsRecoveryMode(true);
       }
     };
@@ -79,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      log(`Evento Auth: ${event}`);
+      log(`Evento: ${event}`);
       setLastEvent(event);
       setSession(newSession);
 
@@ -89,6 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (event === 'SIGNED_OUT') {
         setUser(null);
+        setSession(null);
         setIsRecoveryMode(false);
       }
 
@@ -101,13 +102,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [log, loadProfile]);
 
   const signOut = async () => {
-    log("Limpando ambiente v1.24.0...");
-    await supabase.auth.signOut();
+    log("Iniciando purga de ambiente v1.27.0...");
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {}
+
+    // Limpeza completa de todos os storages
+    const keys = Object.keys(localStorage);
+    keys.filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k));
+    
+    sessionStorage.clear();
+    
+    // Limpeza de cookies (hack básico para cookies de sessão se houver)
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c
+        .replace(/^ +/, "")
+        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+
     setUser(null);
     setSession(null);
     setIsRecoveryMode(false);
     setLastEvent(null);
-    window.history.replaceState(null, '', window.location.pathname);
+    
+    log("Storage e Cookies limpos.");
   };
 
   return (
