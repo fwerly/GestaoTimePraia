@@ -21,13 +21,13 @@ export const UpdatePassword: React.FC = () => {
 
   useEffect(() => {
     if (loading && lastEvent === 'USER_UPDATED') {
-      log("Sincronização externa detectada v1.27.0.");
+      log("Sincronização externa v1.28.0.");
       successTimeoutRef.current = window.setTimeout(() => {
         if (!success) {
-          log("Forçando sucesso via evento v1.27.0.");
+          log("Forçando conclusão v1.28.0.");
           completeSuccess();
         }
-      }, 1000);
+      }, 800);
     }
     return () => {
       if (successTimeoutRef.current) window.clearTimeout(successTimeoutRef.current);
@@ -39,7 +39,7 @@ export const UpdatePassword: React.FC = () => {
       if (!session && !success) {
         const hash = window.location.hash;
         if (hash.includes('access_token=')) {
-          log("Validando tokens v1.27.0...");
+          log("Validando tokens v1.28.0...");
           try {
             const params = new URLSearchParams(hash.replace('#', '?'));
             const { error } = await supabase.auth.setSession({
@@ -62,10 +62,9 @@ export const UpdatePassword: React.FC = () => {
     setSuccess(true);
     setLoading(false);
     isUpdatingRef.current = false;
-    log("ALTERAÇÃO RECONHECIDA v1.27.0.");
-    addToast("Senha alterada!", "success");
+    log("SENHA ATUALIZADA v1.28.0.");
+    addToast("Senha alterada com sucesso!", "success");
     
-    // Remove hash e limpa histórico para não reativar modo de recuperação ao recarregar
     window.location.hash = ''; 
     window.history.replaceState(null, '', window.location.pathname);
     
@@ -81,11 +80,10 @@ export const UpdatePassword: React.FC = () => {
 
     setLoading(true);
     isUpdatingRef.current = true;
-    log("Gravando senha v1.27.0...");
+    log("Gravando v1.28.0...");
 
     try {
       const { error } = await supabase.auth.updateUser({ password });
-      
       if (error) {
         log(`Erro: ${error.message}`, "error");
         addToast(error.message, "error");
@@ -93,12 +91,9 @@ export const UpdatePassword: React.FC = () => {
         isUpdatingRef.current = false;
         return;
       }
-
-      log("Confirmado pelo servidor.");
       completeSuccess();
-
     } catch (error: any) {
-      log("Falha de rede v1.27.0.", "error");
+      log("Falha rede v1.28.0.", "error");
       addToast("Erro de rede.", "error");
       setLoading(false);
       isUpdatingRef.current = false;
@@ -106,10 +101,9 @@ export const UpdatePassword: React.FC = () => {
   };
 
   const handleFinish = async () => {
-    log("EXECUTANDO HARD REDIRECT v1.27.0...");
+    log("RESET HARD v1.28.0...");
     await signOut(); 
     setRecoveryMode(false);
-    // Redirecionamento forçado para garantir que NADA de cache de memória sobreva
     window.location.href = window.location.origin;
   };
 
@@ -119,7 +113,7 @@ export const UpdatePassword: React.FC = () => {
 
       <div className="relative z-10 w-full max-w-sm">
         <div className="mb-10 animate-in fade-in slide-in-from-top-4 duration-700">
-          <div className={`w-24 h-24 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-2xl transition-all duration-1000 ${success ? 'bg-primary-500 rotate-0 scale-110' : 'bg-zinc-900 border-2 border-primary-500/20 rotate-3'}`}>
+          <div className={`w-24 h-24 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-2xl transition-all duration-1000 ${success ? 'bg-primary-500' : 'bg-zinc-900 border-2 border-primary-500/20 rotate-3'}`}>
              {success ? (
                <CheckCircle2 size={48} className="text-black" />
              ) : (
@@ -130,7 +124,7 @@ export const UpdatePassword: React.FC = () => {
             {success ? 'SUCESSO' : 'SEGURANÇA'}
           </h1>
           <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.3em] italic">
-            {success ? 'SENHA ATUALIZADA' : 'REDEFINIÇÃO DE ACESSO'}
+            v1.28.0 - REVALIDAÇÃO
           </p>
         </div>
 
@@ -138,24 +132,14 @@ export const UpdatePassword: React.FC = () => {
           <div className="bg-zinc-900/60 backdrop-blur-2xl border border-primary-500/30 p-8 rounded-[2.5rem] shadow-2xl space-y-6 text-left">
             <div className="space-y-2">
               <p className="text-zinc-100 text-sm font-black uppercase italic">Tudo pronto!</p>
-              <p className="text-zinc-400 text-xs leading-relaxed">Sua conta foi revalidada. Clique abaixo para limpar sua sessão e entrar com a nova senha.</p>
+              <p className="text-zinc-400 text-xs leading-relaxed">Sua senha foi redefinida. Clique para realizar o login novamente com sua nova chave.</p>
             </div>
             <button 
               onClick={handleFinish}
               className="w-full bg-primary-500 hover:bg-primary-400 text-black font-black text-sm uppercase tracking-wider py-5 rounded-2xl shadow-[0_10px_30px_rgba(132,204,22,0.3)] active:scale-95 transition-all flex items-center justify-center gap-2 italic"
             >
-              LOGAR NOVAMENTE
+              RETORNAR AO LOGIN
             </button>
-          </div>
-        ) : !session ? (
-          <div className="bg-zinc-900/40 backdrop-blur-xl p-8 rounded-[2rem] border border-white/5 space-y-6 shadow-2xl">
-             <div className="flex justify-center text-primary-500">
-               <RefreshCw size={40} className="animate-spin opacity-50" />
-             </div>
-             <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest animate-pulse italic">
-               Sincronizando v1.27.0...
-             </p>
-             <button onClick={() => window.location.reload()} className="text-primary-500 text-[10px] font-black uppercase underline">Recarregar</button>
           </div>
         ) : (
           <form onSubmit={handleUpdate} className="bg-zinc-900/60 backdrop-blur-2xl border border-white/10 p-8 rounded-[2.5rem] shadow-2xl space-y-6 text-left">
@@ -184,16 +168,16 @@ export const UpdatePassword: React.FC = () => {
               {loading ? (
                 <>
                   <RefreshCw size={18} className="animate-spin" />
-                  GRAVANDO...
+                  ATUALIZANDO...
                 </>
-              ) : 'ATUALIZAR ACESSO'}
+              ) : 'CONFIRMAR NOVA SENHA'}
             </button>
           </form>
         )}
 
         <div className="mt-16 opacity-30 flex items-center justify-center gap-2">
            <Terminal size={10} className="text-zinc-600" />
-           <span className="text-zinc-600 text-[9px] uppercase font-black tracking-[0.4em]">Engine Core v1.27.0</span>
+           <span className="text-zinc-600 text-[9px] uppercase font-black tracking-[0.4em]">Engine v1.28.0</span>
         </div>
       </div>
     </div>

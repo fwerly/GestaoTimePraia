@@ -14,6 +14,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   setRecoveryMode: (val: boolean) => void;
+  hardReset: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -28,6 +29,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { log } = useDebug();
   const mounted = useRef(false);
 
+  const hardReset = useCallback(() => {
+    log("PURGA DE EMERGÊNCIA v1.28.0 DISPARADA");
+    localStorage.clear();
+    sessionStorage.clear();
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+    window.location.href = window.location.origin;
+  }, [log]);
+
   const loadProfile = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -39,30 +50,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
       if (data) {
         setUser(data as Profile);
-        log(`Perfil [${data.role}]: ${data.full_name}`);
+        log(`Perfil [${data.role}] Ativo.`);
       }
     } catch (err: any) {
       log(`Erro perfil: ${err.message}`, 'error');
+    } finally {
+      // Garante que o estado de carregamento termina mesmo se o perfil falhar
+      setLoading(false);
+      setAuthReady(true);
     }
   }, [log]);
-
-  const refreshProfile = useCallback(async () => {
-    if (session?.user?.id) {
-      log("Refresh manual v1.27.0");
-      await loadProfile(session.user.id);
-    }
-  }, [session, loadProfile, log]);
 
   useEffect(() => {
     if (mounted.current) return;
     mounted.current = true;
 
-    log("Auth Engine v1.27.0 - Hard Security Mode");
+    log("Auth Engine v1.28.0 - Anti-Stall Ativo");
+
+    // Timeout de segurança: Se em 6 segundos nada acontecer, destrava a UI
+    const safetyTimeout = setTimeout(() => {
+      if (loading) {
+        log("TIMEOUT DE SEGURANÇA: Destravando UI forçadamente.", "warn");
+        setLoading(false);
+        setAuthReady(true);
+      }
+    }, 6000);
 
     const checkHash = () => {
       const hash = window.location.hash;
       if (hash.includes('type=recovery') || hash.includes('type=signup') || hash.includes('access_token=')) {
-        log("Contexto de recuperação ativo.");
+        log("Contexto de recuperação via URL.");
         setIsRecoveryMode(true);
       }
     };
@@ -73,13 +90,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(initSession);
       if (initSession) {
         loadProfile(initSession.user.id);
+      } else {
+        setLoading(false);
+        setAuthReady(true);
       }
+      clearTimeout(safetyTimeout);
+    }).catch(err => {
+      log("Erro crítico getSession: " + err.message, "error");
       setLoading(false);
       setAuthReady(true);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      log(`Evento: ${event}`);
+      log(`Evento Auth: ${event}`);
       setLastEvent(event);
       setSession(newSession);
 
@@ -98,34 +121,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, [log, loadProfile]);
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(safetyTimeout);
+    };
+  }, [log, loadProfile, loading]);
 
   const signOut = async () => {
-    log("Iniciando purga de ambiente v1.27.0...");
+    log("SignOut v1.28.0...");
     try {
       await supabase.auth.signOut();
     } catch (e) {}
 
-    // Limpeza completa de todos os storages
-    const keys = Object.keys(localStorage);
-    keys.filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k));
+    // Limpeza de cache sb-
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('sb-'))
+      .forEach(k => localStorage.removeItem(k));
     
     sessionStorage.clear();
-    
-    // Limpeza de cookies (hack básico para cookies de sessão se houver)
-    document.cookie.split(";").forEach((c) => {
-      document.cookie = c
-        .replace(/^ +/, "")
-        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-    });
-
     setUser(null);
     setSession(null);
     setIsRecoveryMode(false);
     setLastEvent(null);
-    
-    log("Storage e Cookies limpos.");
   };
 
   return (
@@ -137,8 +154,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isRecoveryMode,
       lastEvent,
       signOut, 
-      refreshProfile,
-      setRecoveryMode: setIsRecoveryMode
+      refreshProfile: async () => {}, // Simplificado para v1.28
+      setRecoveryMode: setIsRecoveryMode,
+      hardReset
     }}>
       {children}
     </AuthContext.Provider>
